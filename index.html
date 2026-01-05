@@ -14,6 +14,8 @@ html, body {
     font-family: Arial, sans-serif;
     background: black;
 }
+
+/* 動く背景 */
 #background {
     position: fixed;
     width: 200%;
@@ -22,11 +24,44 @@ html, body {
     animation: bgMove 60s linear infinite;
     z-index: -1;
 }
-@keyframes bgMove {0% {transform: translate(0,0);}50% {transform: translate(-25%,-25%);}100% {transform: translate(0,0);}}
-#clock {position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10vw; letter-spacing: 0.05em; text-shadow: 0 0 25px rgba(0,0,0,0.8);}
-#status {position: absolute; top: 3%; right: 3%; color: rgba(255,255,255,0.7); font-size: 1.2em;}
-#tapNotice {position: absolute; bottom: 5%; width: 100%; text-align: center; color: rgba(255,255,255,0.7);}
-#player {display: none;}
+@keyframes bgMove {
+    0% { transform: translate(0,0); }
+    50% { transform: translate(-25%,-25%); }
+    100% { transform: translate(0,0); }
+}
+
+/* 時計 */
+#clock {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 10vw;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 25px rgba(0,0,0,0.8);
+}
+
+/* 状態表示 */
+#status {
+    position: absolute;
+    top: 3%;
+    right: 3%;
+    color: rgba(255,255,255,0.7);
+    font-size: 1.2em;
+}
+
+#tapNotice {
+    position: absolute;
+    bottom: 5%;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,0.7);
+}
+
+#player {
+    display: none;
+}
 </style>
 </head>
 
@@ -40,20 +75,45 @@ html, body {
 
 <script>
 /* ===================== 設 定 ===================== */
-let MODE = "schedule";
+
+// 初期モード
+let MODE = "schedule"; // "schedule" or "playlist"
+
+// 指定時刻再生
 const SCHEDULE = [
   { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
   { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 10, min: 59, sec: 13, video: "HSZBQUcB1Dc" }
+  { hour: 10, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 11, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 12, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 13, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 14, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 15, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 16, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 17, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 18, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 19, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 20, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 21, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 22, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 23, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
 ];
+
+// 再生時間（秒）
 const PLAY_DURATION = 30;
 const FADE_OUT_TIME = 5;
+
+// プレイリストID
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+
 /* =============================================== */
 
-let player, activated=false, playedList=[], fadeTimer;
+let player;
+let activated = false;
+let playedList = [];
+let fadeTimer;
 
-/* ===== 時計 ===== */
+// 時計
 setInterval(() => {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
@@ -61,87 +121,113 @@ setInterval(() => {
     const s = String(now.getSeconds()).padStart(2,'0');
     document.getElementById("clock").textContent = `${h}:${m}:${s}`;
 
-    if (activated && MODE==="schedule") {
-        SCHEDULE.forEach((item,index)=>{
-            if(now.getHours()===item.hour && now.getMinutes()===item.min && now.getSeconds()===item.sec && !playedList.includes(index)){
+    if (activated && MODE === "schedule") {
+        SCHEDULE.forEach((item, index) => {
+            if (
+                now.getHours() === item.hour &&
+                now.getMinutes() === item.min &&
+                now.getSeconds() === item.sec &&
+                !playedList.includes(index)
+            ) {
                 playVideo(item.video);
                 playedList.push(index);
             }
         });
     }
-},1000);
+}, 1000);
 
-/* ===== YouTube API ===== */
+// YouTube API
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
 
-function onYouTubeIframeAPIReady(){
-    player = new YT.Player('player',{
-        height:'0', width:'0',
-        playerVars:{autoplay:0, controls:0}
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+        height: '0',
+        width: '0',
+        playerVars: {
+            autoplay: 0, // 自動再生OFF
+            controls: 0
+        }
     });
 }
 
-/* ===== 初回タップで音声解放 ===== */
+// 初回タップで音が鳴るように
 document.body.addEventListener('click', () => {
-    if(!activated && player){
+    if (!activated && player) {
         activated = true;
-        document.getElementById("tapNotice").style.display="none";
+        document.getElementById("tapNotice").style.display = "none";
 
-        player.unMute();
+        player.unMute(); // ミュート解除
         player.setVolume(100);
 
-        // プレイリストを一瞬再生してすぐ止める → ユーザー操作として認識
-        player.loadPlaylist({list: PLAYLIST_ID});
-        player.playVideo();
-        setTimeout(()=>player.pauseVideo(),300);
+        // 初期モードに応じて再生
+        if (MODE === "schedule") {
+            // 最初のスケジュール動画はすぐ再生せず待機
+        } else if (MODE === "playlist") {
+            startPlaylist();
+        }
+    }
+}, { once: true });
 
+// キー操作
+document.addEventListener('keydown', (e) => {
+    if (!activated || !player) return;
+
+    if (e.key === "1") {
+        MODE = "schedule";
+        player.pauseVideo();
         updateStatus();
     }
-},{once:true});
-
-/* ===== キー操作 ===== */
-document.addEventListener('keydown',(e)=>{
-    if(!activated || !player) return;
-    if(e.key==="1"){MODE="schedule"; player.pauseVideo(); updateStatus();}
-    if(e.key==="2"){MODE="playlist"; startPlaylist(); updateStatus();}
-    if(e.key==="0"){player.pauseVideo();}
+    if (e.key === "2") {
+        MODE = "playlist";
+        startPlaylist();
+        updateStatus();
+    }
+    if (e.key === "0") {
+        player.pauseVideo();
+    }
 });
 
-/* ===== プレイリスト再生 ===== */
-function startPlaylist(){
+// プレイリスト開始
+function startPlaylist() {
     clearInterval(fadeTimer);
-    player.loadPlaylist({list:PLAYLIST_ID});
+    player.loadPlaylist({ list: PLAYLIST_ID });
     player.setVolume(100);
     player.unMute();
 }
 
-/* ===== 単曲再生 ===== */
-function playVideo(videoId){
+// 単曲再生
+function playVideo(videoId) {
     clearInterval(fadeTimer);
     player.loadVideoById(videoId);
     player.setVolume(100);
     player.unMute();
-    setTimeout(startFadeOut,(PLAY_DURATION-FADE_OUT_TIME)*1000);
+    setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000);
 }
 
-/* ===== フェードアウト ===== */
-function startFadeOut(){
-    let vol=100;
-    fadeTimer = setInterval(()=>{
-        vol-=2;
-        if(vol<=0){player.pauseVideo(); clearInterval(fadeTimer);}
-        else{player.setVolume(vol);}
-    },(FADE_OUT_TIME*1000)/50);
+// フェードアウト
+function startFadeOut() {
+    let vol = 100;
+    fadeTimer = setInterval(() => {
+        vol -= 2;
+        if (vol <= 0) {
+            player.pauseVideo();
+            clearInterval(fadeTimer);
+        } else {
+            player.setVolume(vol);
+        }
+    }, (FADE_OUT_TIME * 1000) / 50);
 }
 
-/* ===== ステータス表示 ===== */
-function updateStatus(){
-    document.getElementById("status").textContent=`MODE: ${MODE.toUpperCase()}  [1:SCHEDULE  2:PLAYLIST]`;
+// 表示更新
+function updateStatus() {
+    document.getElementById("status").textContent =
+        `MODE: ${MODE.toUpperCase()}  [1:SCHEDULE  2:PLAYLIST]`;
 }
 updateStatus();
 </script>
 
 </body>
 </html>
+
