@@ -2,153 +2,93 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Detail</title>
+<title>Cyber Clock - Shinjuku Stable</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-html, body {
-    margin: 0; padding: 0;
-    width: 100%; height: 100%;
-    overflow: hidden;
-    font-family: 'Share Tech Mono', monospace;
-    background: #000;
-}
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; }
+#background { position: fixed; width: 200%; height: 200%; background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); background-size: 400% 400%; animation: bgMove 30s ease infinite; z-index: -1; opacity: 0.4; }
+@keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.shooting-star { position: absolute; top: -10px; width: 2px; height: 100px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2); opacity: 0; z-index: 0; }
+@keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(100vh) translateX(100vh) rotate(-45deg); opacity: 0; } }
 
-#background {
-    position: fixed;
-    width: 200%; height: 200%;
-    background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505);
-    background-size: 400% 400%;
-    animation: bgMove 30s ease infinite;
-    z-index: -1;
-    opacity: 0.4;
-}
-@keyframes bgMove {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
+#clock-container { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
+#clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
+#date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; }
 
-.shooting-star {
-    position: absolute;
-    top: -10px; width: 2px; height: 100px;
-    background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2);
-    opacity: 0; z-index: 0;
-}
-@keyframes shoot {
-    0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { transform: translateY(100vh) translateX(100vh) rotate(-45deg); opacity: 0; }
-}
-
-#clock-container {
-    position: absolute;
-    top: 40%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    z-index: 10; width: 100%;
-}
-
-#clock {
-    color: #00fff2;
-    font-size: 14vw;
-    letter-spacing: 0.05em;
-    text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2;
-    line-height: 1;
-}
-
-#date {
-    color: rgba(0, 255, 242, 0.7);
-    font-size: 2.5vw;
-    letter-spacing: 0.3em;
-}
-
-/* --- 天気セクション --- */
-#weather-section {
-    position: absolute;
-    bottom: 10%; left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    text-align: center;
-}
-
-#location-tag {
-    color: #ff00ff;
-    font-size: 1.5vw;
-    letter-spacing: 0.5em;
-    margin-bottom: 15px;
-    text-shadow: 0 0 10px #ff00ff;
-}
-
-#forecast-container {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 15px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 0, 255, 0.3);
-}
-
-.forecast-item {
-    flex: 1;
-    color: #ff00ff;
-    text-shadow: 0 0 8px #ff00ff;
-}
-
+#weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; }
+#location-tag { color: #ff00ff; font-size: 1.5vw; letter-spacing: 0.5em; margin-bottom: 10px; text-shadow: 0 0 10px #ff00ff; }
+#forecast-container { display: flex; justify-content: center; gap: 15px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 10px; border: 1px solid rgba(255, 0, 255, 0.3); }
+.forecast-item { flex: 1; color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
 .f-time { font-size: 1vw; color: rgba(255, 0, 255, 0.7); }
 .f-icon { font-size: 2.5vw; margin: 5px 0; }
-.f-temp { font-size: 1.5vw; font-weight: bold; }
-
-#high-low {
-    margin-top: 10px;
-    font-size: 1.8vw;
-    color: #fff;
-    text-shadow: 0 0 10px #fff;
-}
+#high-low { margin-top: 10px; font-size: 1.8vw; color: #fff; text-shadow: 0 0 10px #fff; }
 .temp-max { color: #ff4d4d; margin-right: 15px; }
 .temp-min { color: #4d94ff; }
 
-#status {
-    position: absolute;
-    top: 5%; left: 5%;
-    color: #ff00ff;
-    font-size: 1.2em;
-    border-left: 3px solid #ff00ff;
-    padding-left: 10px;
-}
-
-#tapNotice {
-    position: absolute;
-    bottom: 3%; width: 100%;
-    text-align: center; color: white;
-    font-size: 1.2em;
-    animation: blink 1.5s infinite;
-}
+#status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; }
+#tapNotice { position: absolute; bottom: 3%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-
 #player { display: none; }
 </style>
 </head>
 
 <body>
-
 <div id="background"></div>
 <div id="status">SYSTEM: STANDBY</div>
-
 <div id="clock-container">
-    <div id="date">2026.01.05 MON</div>
+    <div id="date">0000.00.00 ---</div>
     <div id="clock">00:00:00</div>
 </div>
-
 <div id="weather-section">
     <div id="location-tag">TOKYO / SHINJUKU</div>
-    
-    <div id="forecast-container">
-        </div>
+    <div id="forecast-container"></div>
+    <div id="high-low">MAX: <span class="temp-max">--</span> MIN: <span class="temp-min">--</span></div>
+</div>
+<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
+<div id="player"></div>
 
-    <div id="high-low">
-        MAX: <span class="temp-max">--°C</span> 
-        MIN: <span class="temp-min">--°C</span>
+<script>
+/* ===================== 設 定 ===================== */
+const AREA_CODE = "130000"; 
+let MODE = "schedule";
+const SCHEDULE = [
+  { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" }
+];
+const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+const PLAY_DURATION = 30;
+const FADE_OUT_TIME = 5;
+/* =============================================== */
+
+let player, activated = false, playedList = [], fadeTimer;
+
+function getIcon(code) {
+    const c = String(code);
+    if (c.startsWith("1")) return "☀";
+    if (c.startsWith("2")) return "☁";
+    if (c.startsWith("3")) return "☔";
+    if (c.startsWith("4")) return "❄";
+    return "✨";
+}
+
+// 天気更新（エラー対策強化版）
+async function updateWeather() {
+    try {
+        const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
+        const data = await res.json();
+        
+        // 1. 時間別予報の描画
+        const timeSeries = data[0].timeSeries[0];
+        const codes = timeSeries.areas[0].weatherCodes;
+        const times = timeSeries.timeDefines;
+        const container = document.getElementById("forecast-container");
+        container.innerHTML = "";
+        for(let i=0; i<Math.min(6, codes.length); i++) {
+            const hour = new Date(times[i]).getHours() + ":00";
+            container.innerHTML += `<div class="forecast-item"><div class="f-time">${hour}</div><div class="f-icon">${getIcon(codes[i])}</div></div>`;
+        }
+
+        // 2. 最高・最低気温 (週間予報データから安全に取得)
+        const weekData = data[1].timeSeries[1].areas[0];
