@@ -52,26 +52,21 @@ body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20
 body.mode-standby #calendar-title, body.mode-playlist #calendar-title { color: #00fff2; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
 
-/* 次の予定 (一番上の項目) */
 .event-item.next-up { font-size: 1.8em; margin-bottom: 15px; transition: all 0.5s; border-right: 4px solid; padding-right: 15px; }
 body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right-color: #00fff2; }
 body.mode-schedule .event-item.next-up { color: #db7093; border-right-color: #db7093; }
 
-/* 2番目以降の予定 */
 .event-item { font-size: 1.1em; margin-bottom: 8px; white-space: nowrap; transition: all 0.5s; overflow: hidden; text-overflow: ellipsis; }
 body.mode-standby .event-item, body.mode-playlist .event-item { color: #fff; opacity: 0.7; }
 body.mode-schedule .event-item { color: #6a5acd; opacity: 1; }
 
-/* 時間の文字色 */
 .event-time { font-weight: bold; margin-right: 8px; transition: all 0.5s; }
 body.mode-standby .event-time, body.mode-playlist .event-time { color: #00fff2; }
 body.mode-schedule .event-time { color: #db7093; }
 
-/* 日付タグ (1/7など) */
 .event-date-tag { font-size: 0.7em; margin-right: 5px; border: 1px solid #ff00ff; padding: 0 3px; vertical-align: middle; color: #ff00ff; }
 body.mode-schedule .event-date-tag { border-color: #db7093; color: #db7093; }
 
-/* 下部：天気 */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; height: 15vw; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; transition: all 0.5s; }
 body.mode-standby #location-tag, body.mode-playlist #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
@@ -83,7 +78,6 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel { background
 body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
-/* デコレーション */
 #decoration-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.5s; }
 body.mode-schedule #decoration-layer { opacity: 0.6; }
 
@@ -142,6 +136,7 @@ const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const LAT = 35.6895; const LON = 139.6917;
 
 let MODE = "standby"; 
+const MODES_LIST = ["standby", "schedule", "playlist"];
 const SCHEDULE = Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" }));
 
 let player, activated = false;
@@ -158,15 +153,12 @@ async function listUpcomingEvents() {
         const events = response.result.items;
         list.innerHTML = "";
         if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
-        
         const today = new Date();
         events.forEach((event, index) => {
             const start = new Date(event.start.dateTime || event.start.date);
             const isToday = start.getDate() === today.getDate() && start.getMonth() === today.getMonth();
-            
             let dateTag = !isToday ? `<span class="event-date-tag">${start.getMonth()+1}/${start.getDate()}</span>` : "";
             const timeRange = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}` : "ALL DAY";
-            
             const itemClass = (index === 0) ? "event-item next-up" : "event-item";
             list.innerHTML += `<div class="${itemClass}">${dateTag}<span class="event-time">${timeRange}</span>${event.summary}</div>`;
         });
@@ -215,20 +207,42 @@ function handleAuth() {
     tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
 }
 
-function handleStatusClick() { if (!activated) startSystem(); else toggleMode(); }
+function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
 
-function toggleMode() {
-    if (MODE === "standby") { MODE = "schedule"; player.loadVideoById(BASE_VIDEO_ID); player.unMute(); } 
-    else if (MODE === "schedule") { MODE = "playlist"; player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); } 
-    else { MODE = "standby"; player.loadVideoById(BASE_VIDEO_ID); player.mute(); }
+// モード切り替え関数 (1:次, -1:前)
+function toggleMode(direction) {
+    let currentIndex = MODES_LIST.indexOf(MODE);
+    let nextIndex = (currentIndex + direction + MODES_LIST.length) % MODES_LIST.length;
+    MODE = MODES_LIST[nextIndex];
+
+    if (MODE === "standby") {
+        player.loadVideoById(BASE_VIDEO_ID);
+        player.mute();
+    } else if (MODE === "schedule") {
+        player.loadVideoById(BASE_VIDEO_ID);
+        player.unMute();
+    } else if (MODE === "playlist") {
+        player.loadPlaylist({list: PLAYLIST_ID});
+        player.unMute();
+    }
     updateStatus();
-    listUpcomingEvents(); // 切り替え時に再描画して色を即時反映
+    listUpcomingEvents();
 }
 
 function updateStatus() { 
     document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; 
     document.body.className = "mode-" + MODE;
 }
+
+// リモコン（キーボード）操作の復元
+document.addEventListener('keydown', (e) => {
+    if (!activated) {
+        startSystem();
+        return;
+    }
+    if (e.key === "ArrowRight") toggleMode(1);
+    if (e.key === "ArrowLeft") toggleMode(-1);
+});
 
 document.body.addEventListener('click', () => { if(!activated) startSystem(); });
 
