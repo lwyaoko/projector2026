@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Reliable Weather</title>
+<title>Cyber Clock - Shinjuku News Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -18,19 +18,46 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
+/* 天気表示セクション */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; }
-#location-tag { color: #ff00ff; font-size: 2vw; letter-spacing: 0.5em; margin-bottom: 15px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; display: block; width: 100%; text-align: center; }
+#location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; display: block; width: 100%; text-align: center; }
 
-#weather-box { 
-    display: flex; justify-content: center; align-items: center; gap: 50px; 
-    background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 15px; border: 1px solid rgba(255, 0, 255, 0.3);
+#weather-display-area { 
+    height: 12vw; 
+    display: flex; justify-content: center; align-items: center;
+    perspective: 1000px;
 }
 
-.weather-main-icon { font-size: 6vw; text-shadow: 0 0 20px #ff00ff; color: #fff; width: 8vw; text-align: center; }
+/* アニメーション用コンテナ */
+.weather-panel { 
+    position: absolute;
+    display: flex; justify-content: center; align-items: center; gap: 40px; 
+    background: rgba(0, 0, 0, 0.8); padding: 20px 40px; border-radius: 15px; border: 1px solid rgba(255, 0, 255, 0.3);
+    width: 60%;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease;
+    pointer-events: none;
+}
+
+.weather-panel.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.weather-main-icon { font-size: 6vw; text-shadow: 0 0 20px #ff00ff; color: #fff; width: 10vw; text-align: center; }
 .weather-details { display: flex; gap: 30px; text-align: left; }
 .weather-item { display: flex; flex-direction: column; }
 .label { font-size: 1vw; color: #ff00ff; opacity: 0.8; letter-spacing: 1px; }
 .value { font-size: 3vw; color: #fff; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
+
+/* 3時間ごとのアイテム */
+.forecast-list { display: flex; gap: 20px; justify-content: space-around; width: 100%; }
+.forecast-unit { text-align: center; }
+.f-time { font-size: 1vw; color: #ff00ff; margin-bottom: 5px; }
+.f-icon { font-size: 3vw; color: #fff; margin: 5px 0; }
+.f-temp { font-size: 1.5vw; color: #fff; font-weight: bold; }
 
 #status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; text-transform: uppercase; z-index: 100; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
@@ -50,17 +77,23 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 <div id="weather-section">
     <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="weather-box">
-        <div id="main-icon" class="weather-main-icon">--</div>
-        <div class="weather-details">
-            <div class="weather-item">
-                <div class="label">TEMPERATURE</div>
-                <div id="temp-val" class="value">--°C</div>
+    <div id="weather-display-area">
+        <div id="panel-current" class="weather-panel active">
+            <div id="main-icon" class="weather-main-icon">--</div>
+            <div class="weather-details">
+                <div class="weather-item">
+                    <div class="label">TEMPERATURE</div>
+                    <div id="temp-val" class="value">--°C</div>
+                </div>
+                <div class="weather-item">
+                    <div class="label">PRECIPITATION</div>
+                    <div id="prec-val" class="value">--mm</div>
+                </div>
             </div>
-            <div class="weather-item">
-                <div class="label">RAIN / SNOW</div>
-                <div id="prec-val" class="value">--mm</div>
-            </div>
+        </div>
+        <div id="panel-forecast" class="weather-panel">
+            <div id="forecast-container" class="forecast-list">
+                </div>
         </div>
     </div>
 </div>
@@ -69,47 +102,72 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 <div id="player"></div>
 
 <script>
-/* ===================== 設 定 ===================== */
-// 新宿区の座標 (緯度/経度)
 const LAT = 35.6895; 
 const LON = 139.6917;
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
-/* =============================================== */
 
 let player, activated = false, playedList = [], fadeTimer, MODE = "schedule";
 
-// WMO天気コードを絵文字に変換
-function getWeatherIcon(code) {
-    if (code === 0) return "☀"; // 快晴
-    if (code <= 3) return "☁"; // 晴れ〜くもり
-    if (code >= 45 && code <= 48) return "🌫"; // 霧
-    if (code >= 51 && code <= 67) return "☔"; // 小雨〜雨
-    if (code >= 71 && code <= 77) return "❄"; // 雪
-    if (code >= 80 && code <= 82) return "☔"; // にわか雨
-    if (code >= 95) return "⛈"; // 雷雨
+function getWeatherIcon(code, isNight = false) {
+    if (code === 0) return isNight ? "🌙" : "☀";
+    if (code <= 3) return "☁";
+    if (code >= 45 && code <= 48) return "🌫";
+    if (code >= 51 && code <= 67) return "☔";
+    if (code >= 71 && code <= 77) return "❄";
+    if (code >= 80 && code <= 82) return "☔";
+    if (code >= 95) return "⛈";
     return "✨";
 }
 
 async function updateWeather() {
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&timezone=Asia%2FTokyo`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
         const res = await fetch(url);
         const data = await res.json();
+        
+        // 今の天気
         const current = data.current;
-
+        const hour = new Date().getHours();
+        const isNight = hour >= 18 || hour < 6;
         document.getElementById("temp-val").textContent = current.temperature_2m.toFixed(1) + "°C";
         document.getElementById("prec-val").textContent = current.precipitation.toFixed(1) + "mm";
-        
-        // 夜間は月アイコンにする (18時〜6時)
-        let icon = getWeatherIcon(current.weather_code);
-        const hour = new Date().getHours();
-        if (icon === "☀" && (hour >= 18 || hour < 6)) icon = "🌙";
-        
-        document.getElementById("main-icon").textContent = icon;
-    } catch (e) {
-        console.log("Weather fetch failed");
-    }
+        document.getElementById("main-icon").textContent = getWeatherIcon(current.weather_code, isNight);
+
+        // 3時間ごとの予報 (現在から3, 6, 9, 12時間後)
+        const container = document.getElementById("forecast-container");
+        container.innerHTML = "";
+        for (let i = 3; i <= 12; i += 3) {
+            const timeIdx = hour + i;
+            const fCode = data.hourly.weather_code[timeIdx];
+            const fTemp = data.hourly.temperature_2m[timeIdx];
+            const fTime = (timeIdx % 24) + "時";
+            const fIsNight = (timeIdx % 24) >= 18 || (timeIdx % 24) < 6;
+
+            container.innerHTML += `
+                <div class="forecast-unit">
+                    <div class="f-time">${fTime}</div>
+                    <div class="f-icon">${getWeatherIcon(fCode, fIsNight)}</div>
+                    <div class="f-temp">${fTemp.toFixed(0)}°</div>
+                </div>
+            `;
+        }
+    } catch (e) { console.log("Weather Error"); }
+}
+
+// 10秒ごとのパネル切り替え
+function switchPanels() {
+    const p1 = document.getElementById("panel-current");
+    const p2 = document.getElementById("panel-forecast");
+    setInterval(() => {
+        if (p1.classList.contains("active")) {
+            p1.classList.remove("active");
+            p2.classList.add("active");
+        } else {
+            p2.classList.remove("active");
+            p1.classList.add("active");
+        }
+    }, 1000); // 10秒ごと
 }
 
 function createShootingStar() {
@@ -130,10 +188,8 @@ setInterval(() => {
     const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
 
-    if (s === "00") {
-        for(let i=0; i<3; i++) setTimeout(createShootingStar, i * 500);
-    }
-
+    if (s === "00") { for(let i=0; i<3; i++) setTimeout(createShootingStar, i * 500); }
+    
     if (activated && MODE === "schedule") {
         const timeKey = `${h}:${m}:${s}`;
         SCHEDULE.forEach((item, index) => {
@@ -146,7 +202,8 @@ setInterval(() => {
 }, 1000);
 
 updateWeather();
-setInterval(updateWeather, 900000); // 15分おきに更新
+setInterval(updateWeather, 900000);
+switchPanels();
 
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
