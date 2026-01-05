@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock</title>
+<title>Cyber & World Clock Final</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -28,7 +28,7 @@ body.mode-schedule #background {
 
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* 共通パーツの配置（崩壊対策） */
+/* 共通パーツの配置 */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; transition: all 0.5s; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; transition: all 0.5s; }
@@ -52,12 +52,24 @@ body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20
 body.mode-standby #calendar-title, body.mode-playlist #calendar-title { color: #00fff2; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
 
-.event-item.next-up { font-size: 1.8em; margin-bottom: 15px; transition: all 0.5s; }
-body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right: 4px solid #00fff2; padding-right: 15px; }
-body.mode-schedule .event-item.next-up { color: #db7093; border-right: 4px solid #db7093; padding-right: 15px; }
+/* 次の予定 (一番上の項目) */
+.event-item.next-up { font-size: 1.8em; margin-bottom: 15px; transition: all 0.5s; border-right: 4px solid; padding-right: 15px; }
+body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right-color: #00fff2; }
+body.mode-schedule .event-item.next-up { color: #db7093; border-right-color: #db7093; }
 
-.event-item { color: #fff; font-size: 1.1em; margin-bottom: 8px; opacity: 0.7; white-space: nowrap; transition: all 0.5s; }
+/* 2番目以降の予定 */
+.event-item { font-size: 1.1em; margin-bottom: 8px; white-space: nowrap; transition: all 0.5s; overflow: hidden; text-overflow: ellipsis; }
+body.mode-standby .event-item, body.mode-playlist .event-item { color: #fff; opacity: 0.7; }
 body.mode-schedule .event-item { color: #6a5acd; opacity: 1; }
+
+/* 時間の文字色 */
+.event-time { font-weight: bold; margin-right: 8px; transition: all 0.5s; }
+body.mode-standby .event-time, body.mode-playlist .event-time { color: #00fff2; }
+body.mode-schedule .event-time { color: #db7093; }
+
+/* 日付タグ (1/7など) */
+.event-date-tag { font-size: 0.7em; margin-right: 5px; border: 1px solid #ff00ff; padding: 0 3px; vertical-align: middle; color: #ff00ff; }
+body.mode-schedule .event-date-tag { border-color: #db7093; color: #db7093; }
 
 /* 下部：天気 */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; height: 15vw; }
@@ -138,18 +150,25 @@ let lastExecutedSecond = -1;
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
+
 async function listUpcomingEvents() {
     try {
         const response = await gapi.client.calendar.events.list({ 'calendarId': 'primary', 'timeMin': (new Date()).toISOString(), 'showDeleted': false, 'singleEvents': true, 'maxResults': 4, 'orderBy': 'startTime' });
         const list = document.getElementById("calendar-list");
         const events = response.result.items;
         list.innerHTML = "";
-        if (!events || events.length === 0) { list.innerHTML = '<div>NO EVENTS</div>'; return; }
+        if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
+        
+        const today = new Date();
         events.forEach((event, index) => {
             const start = new Date(event.start.dateTime || event.start.date);
+            const isToday = start.getDate() === today.getDate() && start.getMonth() === today.getMonth();
+            
+            let dateTag = !isToday ? `<span class="event-date-tag">${start.getMonth()+1}/${start.getDate()}</span>` : "";
             const timeRange = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}` : "ALL DAY";
+            
             const itemClass = (index === 0) ? "event-item next-up" : "event-item";
-            list.innerHTML += `<div class="${itemClass}"><span style="font-weight:bold;margin-right:10px;">${timeRange}</span>${event.summary}</div>`;
+            list.innerHTML += `<div class="${itemClass}">${dateTag}<span class="event-time">${timeRange}</span>${event.summary}</div>`;
         });
     } catch (err) {}
 }
@@ -203,6 +222,7 @@ function toggleMode() {
     else if (MODE === "schedule") { MODE = "playlist"; player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); } 
     else { MODE = "standby"; player.loadVideoById(BASE_VIDEO_ID); player.mute(); }
     updateStatus();
+    listUpcomingEvents(); // 切り替え時に再描画して色を即時反映
 }
 
 function updateStatus() { 
