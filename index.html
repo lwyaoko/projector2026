@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku</title>
+<title>Cyber Clock - Shinjuku Weather</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -45,40 +45,56 @@ html, body {
 
 #clock-container {
     position: absolute;
-    top: 50%; left: 50%;
+    top: 45%; left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
     z-index: 10; width: 100%;
 }
 
+#location-tag {
+    color: #ff00ff;
+    font-size: 1.5vw;
+    letter-spacing: 0.5em;
+    margin-bottom: 5px;
+    text-shadow: 0 0 10px #ff00ff;
+}
+
 #clock {
     color: #00fff2;
-    font-size: 15vw;
+    font-size: 14vw;
     letter-spacing: 0.05em;
-    text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2, 0 0 60px #00fff2;
+    text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2;
     line-height: 1;
 }
 
 #date {
     color: rgba(0, 255, 242, 0.7);
-    font-size: 3vw;
+    font-size: 2.5vw;
     letter-spacing: 0.3em;
-    text-shadow: 0 0 10px #00fff2;
-    margin-bottom: 20px;
 }
 
-#weather-box {
-    color: #ff00ff;
-    font-size: 2.2vw;
-    text-shadow: 0 0 10px #ff00ff;
+/* --- 天気セクション --- */
+#weather-forecast {
+    position: absolute;
+    bottom: 15%; left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin-top: 15px;
+    gap: 40px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 20px 40px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 0, 255, 0.3);
 }
 
-.weather-icon { font-size: 3.5vw; }
+.forecast-item {
+    text-align: center;
+    color: #ff00ff;
+    text-shadow: 0 0 8px #ff00ff;
+}
+
+.f-day { font-size: 1.2vw; color: rgba(255, 0, 255, 0.7); margin-bottom: 5px; }
+.f-icon { font-size: 3vw; margin: 5px 0; }
+.f-temp { font-size: 1.8vw; font-weight: bold; }
 
 #status {
     position: absolute;
@@ -87,14 +103,13 @@ html, body {
     font-size: 1.2em;
     border-left: 3px solid #ff00ff;
     padding-left: 10px;
-    text-transform: uppercase;
 }
 
 #tapNotice {
     position: absolute;
-    bottom: 8%; width: 100%;
+    bottom: 5%; width: 100%;
     text-align: center; color: white;
-    font-size: 1.5em;
+    font-size: 1.2em;
     animation: blink 1.5s infinite;
 }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
@@ -107,57 +122,75 @@ html, body {
 
 <div id="background"></div>
 <div id="status">SYSTEM: STANDBY</div>
+
 <div id="clock-container">
+    <div id="location-tag">TOKYO / SHINJUKU</div>
     <div id="date">2026.01.05 MON</div>
     <div id="clock">00:00:00</div>
-    <div id="weather-box">
-        <span class="weather-icon">--</span>
-        <span id="temp">--°C</span>
-        <span id="condition">SHINJUKU LOADING...</span>
+</div>
+
+<div id="weather-forecast">
+    <div class="forecast-item" id="day0">
+        <div class="f-day">TODAY</div>
+        <div class="f-icon">--</div>
+        <div class="f-temp">--°C</div>
+    </div>
+    <div class="forecast-item" id="day1">
+        <div class="f-day">TOMORROW</div>
+        <div class="f-icon">--</div>
+        <div class="f-temp">--°C</div>
+    </div>
+    <div class="forecast-item" id="day2">
+        <div class="f-day">AFTER</div>
+        <div class="f-icon">--</div>
+        <div class="f-temp">--°C</div>
     </div>
 </div>
+
 <div id="tapNotice">SYSTEM START: TAP SCREEN</div>
 <div id="player"></div>
 
 <script>
 /* ===================== 設 定 ===================== */
-const AREA_CODE = "130000"; // 東京都（新宿区含む）
+const AREA_CODE = "130000"; 
 let MODE = "schedule";
 const SCHEDULE = [
   { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
   { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" }
 ];
-const PLAY_DURATION = 30;
-const FADE_OUT_TIME = 5;
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 /* =============================================== */
 
-let player, activated = false, playedList = [], fadeTimer;
+let player, activated = false, playedList = [];
 
-// --- 気象庁API連携 (Qiitaの手法をJS版に移植) ---
+// 天気アイコン変換
+function getIcon(text) {
+    if (text.includes("晴")) return "☀";
+    if (text.includes("雨")) return "☔";
+    if (text.includes("雪")) icon = "❄";
+    if (text.includes("くもり") || text.includes("曇")) return "☁";
+    return "✨";
+}
+
 async function updateWeather() {
     try {
         const response = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
         const data = await response.json();
 
-        const areaData = data[0].timeSeries[0].areas[0];
-        const weatherName = areaData.weathers[0]; // 例: "晴れ"
-        const weatherCode = areaData.weatherCodes[0];
+        // 3日間の天気を反映
+        for(let i=0; i<3; i++) {
+            const weatherText = data[0].timeSeries[0].areas[0].weathers[i];
+            const dayEl = document.getElementById(`day${i}`);
+            if(weatherText) {
+                dayEl.querySelector(".f-icon").textContent = getIcon(weatherText);
+            }
+        }
 
-        // アイコン判定
-        let icon = "✨";
-        if (weatherName.includes("晴")) icon = "☀";
-        else if (weatherName.includes("雨")) icon = "☔";
-        else if (weatherName.includes("雪")) icon = "❄";
-        else if (weatherName.includes("くもり") || weatherName.includes("曇")) icon = "☁";
-
-        document.querySelector(".weather-icon").textContent = icon;
-        document.getElementById("condition").textContent = weatherName.replace(/\s+/g, "");
-        
-        // 気温取得
+        // 気温の反映 (今日・明日)
         if (data[0].timeSeries[2]) {
-            const temp = data[0].timeSeries[2].areas[0].temps[0];
-            document.getElementById("temp").textContent = `${temp}°C`;
+            const temps = data[0].timeSeries[2].areas[0].temps;
+            document.querySelector("#day0 .f-temp").textContent = `${temps[0]}°C`;
+            document.querySelector("#day1 .f-temp").textContent = `${temps[2]}°C`;
         }
     } catch (e) { console.error("Weather Error", e); }
 }
@@ -178,11 +211,8 @@ setInterval(() => {
     const s = String(now.getSeconds()).padStart(2,'0');
     document.getElementById("clock").textContent = `${h}:${m}:${s}`;
 
-    const y = now.getFullYear();
-    const mo = String(now.getMonth() + 1).padStart(2,'0');
-    const d = String(now.getDate()).padStart(2,'0');
     const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-    document.getElementById("date").textContent = `${y}.${mo}.${d} ${days[now.getDay()]}`;
+    document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
 
     if (s === "00") createShootingStar();
 
@@ -197,11 +227,10 @@ setInterval(() => {
     }
 }, 1000);
 
-// 初回と1時間おきに天気更新
 updateWeather();
 setInterval(updateWeather, 3600000);
 
-/* --- YouTube API 制御 --- */
+/* --- YouTube API --- */
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
@@ -227,40 +256,13 @@ document.body.addEventListener('click', () => {
     }
 }, {once: true});
 
-document.addEventListener('keydown', (e) => {
-    if (!activated || !player) return;
-    if (e.key === "1") { MODE = "schedule"; player.pauseVideo(); updateStatus(); }
-    if (e.key === "2") { MODE = "playlist"; startPlaylist(); updateStatus(); }
-    if (e.key === "0") { player.pauseVideo(); }
-});
-
-function startPlaylist() {
-    clearInterval(fadeTimer);
-    player.setVolume(100);
-    player.loadPlaylist({list: PLAYLIST_ID});
-}
-
 function playVideo(videoId) {
-    clearInterval(fadeTimer);
     player.setVolume(100);
     player.loadVideoById(videoId);
-    setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000);
 }
-
-function startFadeOut() {
-    let vol = 100;
-    clearInterval(fadeTimer);
-    fadeTimer = setInterval(() => {
-        vol -= 5;
-        if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); }
-        else { player.setVolume(vol); }
-    }, (FADE_OUT_TIME * 1000) / 20);
-}
-
 function updateStatus() {
     document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`;
 }
 </script>
-
 </body>
 </html>
