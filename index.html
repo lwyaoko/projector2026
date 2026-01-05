@@ -1,3 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<title>Cyber & World Clock - Test 03:10</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+/* --- 全体共通設定 --- */
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
+#background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
+
+/* --- 背景モード --- */
+body.mode-standby, body.mode-playlist { background: #000; }
+body.mode-standby #background, body.mode-playlist #background { 
+    background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
+    background-size: 400% 400%; animation: bgMove 30s ease infinite; opacity: 0.4; 
+}
+body.mode-schedule { background: #fdf5e6; }
+body.mode-schedule #background { 
+    background: linear-gradient(135deg, #ffcce0 0%, #ccf2ff 50%, #e0ccff 100%);
+    opacity: 1; animation: bgMove 20s ease infinite;
+}
+@keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+/* --- からくり時計演出用 --- */
+#karakuri-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 200; pointer-events: none; display: none;
+}
+.door {
+    position: absolute; top: 0; width: 50%; height: 100%;
+    background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box;
+    transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093;
+}
+.door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
+.door-right { right: 0; transform: translateX(100%); border-left: 4px solid #fff; }
+#karakuri-overlay.active .door-left { transform: translateX(0); }
+#karakuri-overlay.active .door-right { transform: translateX(0); }
+#karakuri-overlay.open .door-left { transform: translateX(-100%); }
+#karakuri-overlay.open .door-right { transform: translateX(100%); }
+
+.marching-icons {
+    position: absolute; top: 40%; width: 100%; display: flex; 
+    justify-content: space-around; font-size: 8vw; opacity: 0;
+}
+#karakuri-overlay.open .marching-icons {
+    animation: march 15s linear infinite; opacity: 1;
+}
+@keyframes march {
+    from { transform: translateX(100%); }
+    to { transform: translateX(-100%); }
+}
+
+/* --- 配置・デザイン --- */
+#clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
+#clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; transition: all 0.5s; }
+#date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; transition: all 0.5s; }
+body.mode-standby #clock, body.mode-playlist #clock { color: #00fff2; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; }
+body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
+body.mode-schedule #date { color: #db7093; font-weight: bold; }
+body.mode-standby #date, body.mode-playlist #date { color: rgba(0, 255, 242, 0.7); }
+
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; transition: all 0.5s; text-transform: uppercase; }
+body.mode-standby #status, body.mode-playlist #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
+body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
+
+#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; transition: all 0.5s; }
+#calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; transition: all 0.5s; }
+body.mode-standby #calendar-title, body.mode-playlist #calendar-title { color: #00fff2; }
+body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
+
+.event-item.next-up { font-size: 1.8em; margin-bottom: 15px; transition: all 0.5s; border-right: 4px solid; padding-right: 15px; }
+body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right-color: #00fff2; }
+body.mode-schedule .event-item.next-up { color: #db7093; border-right-color: #db7093; }
+.event-item { font-size: 1.1em; margin-bottom: 8px; white-space: nowrap; transition: all 0.5s; overflow: hidden; text-overflow: ellipsis; }
+body.mode-standby .event-item, body.mode-playlist .event-item { color: #fff; opacity: 0.7; }
+body.mode-schedule .event-item { color: #6a5acd; opacity: 1; }
+.event-time { font-weight: bold; margin-right: 8px; transition: all 0.5s; }
+body.mode-standby .event-time, body.mode-playlist .event-time { color: #00fff2; }
+body.mode-schedule .event-time { color: #db7093; }
+.event-date-tag { font-size: 0.7em; margin-right: 5px; border: 1px solid #ff00ff; padding: 0 3px; vertical-align: middle; color: #ff00ff; }
+body.mode-schedule .event-date-tag { border-color: #db7093; color: #db7093; }
+
+#weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; height: 15vw; }
+#location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; transition: all 0.5s; }
+body.mode-standby #location-tag, body.mode-playlist #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+body.mode-schedule #location-tag { color: #db7093; }
+.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; gap: 40px; border-radius: 15px; width: 60%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; left: 20%; }
+body.mode-standby .weather-panel, body.mode-playlist .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
+body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
+.weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+#decoration-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.5s; }
+body.mode-schedule #decoration-layer { opacity: 0.6; }
+#tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+#player { display: none; }
+</style>
+</head>
+
+<body class="mode-standby">
+<div id="background"></div>
+
+<div id="karakuri-overlay">
+    <div class="door door-left">☀️</div>
+    <div class="door door-right">🌙</div>
+    <div class="marching-icons">🌸 🌼 ❄️ ☀️ 🌙 🎈</div>
+</div>
+
+<div id="decoration-layer">
+    <div style="position:absolute; top:10%; left:10%; font-size:8vw;">☀️</div>
+    <div style="position:absolute; bottom:15%; right:10%; font-size:5vw;">🌸🌼❄️</div>
+    <div style="position:absolute; top:20%; right:15%; font-size:4vw;">🌙</div>
+</div>
+
+<div id="status" onclick="handleStatusClick()">SYSTEM: START</div>
+<div id="calendar-container">
+    <div id="calendar-title">UPCOMING SCHEDULE</div>
+    <div id="calendar-list"></div>
+</div>
+<div id="clock-container">
+    <div id="date">0000.00.00 ---</div>
+    <div id="clock">00:00:00</div>
+</div>
+<div id="weather-section">
+    <div id="location-tag">TOKYO / SHINJUKU</div>
+    <div id="weather-display-area">
+        <div id="panel-current" class="weather-panel active">
+            <div id="main-icon" style="font-size:6vw; min-width:8vw; text-align:center;">--</div>
+            <div style="display:flex; gap:30px; text-align:left;">
+                <div><div style="font-size:1vw; opacity:0.7;">TEMP</div><div id="temp-val" style="font-size:3vw; font-weight:bold;">--°C</div></div>
+                <div><div style="font-size:1vw; opacity:0.7;">PRECIP</div><div id="prec-val" style="font-size:3vw; font-weight:bold;">--mm</div></div>
+            </div>
+        </div>
+        <div id="panel-forecast" class="weather-panel">
+            <div id="forecast-container" style="display:flex; gap:20px; width:100%; justify-content:space-around;"></div>
+        </div>
+    </div>
+</div>
+<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
+<div id="player"></div>
+
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+<script>
 /* ===================== 設定 ===================== */
 const CLIENT_ID = '751679996100-jpv7socqnm0ldlv6b5fp0uavbdq6a24u.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAlT8AxD8pq3iqIV7By4calMIKLzG_vDe8';
@@ -8,10 +159,148 @@ const LAT = 35.6895; const LON = 139.6917;
 let MODE = "standby"; 
 const MODES_LIST = ["standby", "schedule", "playlist"];
 
-// 【テスト用】3時8分の時報スケジュール
-// 59分13秒に設定することで、03:08:00から動画のメイン部分が流れるようにしています
+// 【テスト用】3時10分の時報スケジュールを追加
 const SCHEDULE = [
-    { hour: 3, min: 7, sec: 13, video: "HSZBQUcB1Dc" }, // テスト用：03:08に向けた時報
-    // 他の時間は毎時59分13秒に実行
+    { hour: 3, min: 9, sec: 13, video: "HSZBQUcB1Dc" }, // 3:10に向けたテスト時報
     ...Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" }))
 ];
+
+let player, activated = false;
+let tokenClient, gapiInited = false, gisInited = false;
+let lastExecutedSecond = -1;
+
+function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
+function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
+
+async function listUpcomingEvents() {
+    try {
+        const response = await gapi.client.calendar.events.list({ 'calendarId': 'primary', 'timeMin': (new Date()).toISOString(), 'showDeleted': false, 'singleEvents': true, 'maxResults': 4, 'orderBy': 'startTime' });
+        const list = document.getElementById("calendar-list");
+        const events = response.result.items;
+        list.innerHTML = "";
+        if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
+        const today = new Date();
+        events.forEach((event, index) => {
+            const start = new Date(event.start.dateTime || event.start.date);
+            const isToday = start.getDate() === today.getDate() && start.getMonth() === today.getMonth();
+            let dateTag = !isToday ? `<span class="event-date-tag">${start.getMonth()+1}/${start.getDate()}</span>` : "";
+            const timeRange = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}` : "ALL DAY";
+            const itemClass = (index === 0) ? "event-item next-up" : "event-item";
+            list.innerHTML += `<div class="${itemClass}">${dateTag}<span class="event-time">${timeRange}</span>${event.summary}</div>`;
+        });
+    } catch (err) {}
+}
+
+function triggerKarakuri() {
+    const overlay = document.getElementById('karakuri-overlay');
+    overlay.style.display = 'block';
+    setTimeout(() => overlay.classList.add('active'), 100);
+    setTimeout(() => overlay.classList.add('open'), 2000);
+}
+
+function stopKarakuri() {
+    const overlay = document.getElementById('karakuri-overlay');
+    overlay.classList.remove('open');
+    setTimeout(() => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.style.display = 'none', 1500);
+    }, 2000);
+}
+
+setInterval(() => {
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+    document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
+    document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
+
+    if (activated && MODE === "schedule" && s !== lastExecutedSecond) {
+        const match = SCHEDULE.find(item => item.hour === h && item.min === m && item.sec === s);
+        if (match) {
+            lastExecutedSecond = s;
+            triggerKarakuri(); 
+            player.loadVideoById(match.video);
+            player.unMute();
+            player.playVideo();
+        }
+    }
+}, 1000);
+
+function onYouTubeIframeAPIReady() { 
+    player = new YT.Player('player', { height: '0', width: '0', playerVars: { 'enablejsapi': 1 }, 
+        events: { 'onStateChange': (e) => { 
+            if (e.data === YT.PlayerState.ENDED && MODE === "schedule") {
+                stopKarakuri(); 
+                player.loadVideoById(BASE_VIDEO_ID);
+                setTimeout(() => { player.unMute(); player.playVideo(); }, 1000);
+            } 
+        } } 
+    }); 
+}
+
+function startSystem() {
+    if (activated) return;
+    activated = true;
+    document.getElementById("tapNotice").style.display = "none";
+    player.loadVideoById(BASE_VIDEO_ID);
+    setTimeout(() => { player.mute(); player.playVideo(); updateStatus(); }, 1500);
+    if (gapiInited && gisInited) handleAuth();
+}
+
+function handleAuth() {
+    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
+    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
+}
+
+function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
+
+function toggleMode(direction) {
+    let currentIndex = MODES_LIST.indexOf(MODE);
+    let nextIndex = (currentIndex + direction + MODES_LIST.length) % MODES_LIST.length;
+    MODE = MODES_LIST[nextIndex];
+    if (MODE === "standby") { player.loadVideoById(BASE_VIDEO_ID); player.mute(); } 
+    else if (MODE === "schedule") { player.loadVideoById(BASE_VIDEO_ID); player.unMute(); } 
+    else if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
+    updateStatus();
+    listUpcomingEvents();
+}
+
+function updateStatus() { 
+    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; 
+    document.body.className = "mode-" + MODE;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!activated) { startSystem(); return; }
+    if (e.key === "ArrowRight") toggleMode(1);
+    if (e.key === "ArrowLeft") toggleMode(-1);
+});
+
+document.body.addEventListener('click', () => { if(!activated) startSystem(); });
+
+async function updateWeather() {
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
+        const res = await fetch(url); const data = await res.json();
+        document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
+        document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
+        document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
+        const container = document.getElementById("forecast-container");
+        let html = "";
+        const hour = new Date().getHours();
+        for (let i = 3; i <= 12; i += 3) {
+            const idx = (hour + i) % 24;
+            html += `<div style="text-align:center;"><div style="font-size:1vw;">${idx}時</div><div style="font-size:3vw; margin:5px 0;">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div><div style="font-size:1.5vw;">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
+        }
+        container.innerHTML = html;
+    } catch (e) {}
+}
+const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
+updateWeather(); setInterval(updateWeather, 900000); 
+setInterval(() => {
+    const p1 = document.getElementById("panel-current"), p2 = document.getElementById("panel-forecast");
+    if (p1 && p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } 
+    else if (p2) { p2.classList.remove("active"); p1.classList.add("active"); }
+}, 10000);
+</script>
+</body>
+</html>
