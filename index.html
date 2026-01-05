@@ -2,232 +2,217 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Clock + YouTube Controller</title>
+<title>Cyber Clock + YouTube</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 <style>
+/* --- デザイン部分 --- */
 html, body {
     margin: 0;
+    padding: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
-    font-family: Arial, sans-serif;
-    background: black;
+    font-family: 'Share Tech Mono', monospace;
+    background: #000;
 }
 
-/* 動く背景 */
 #background {
     position: fixed;
     width: 200%;
     height: 200%;
-    background: linear-gradient(120deg,#0f2027,#203a43,#2c5364,#1b1b1b);
-    animation: bgMove 60s linear infinite;
+    background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505);
+    background-size: 400% 400%;
+    animation: bgMove 30s ease infinite;
     z-index: -1;
+    opacity: 0.4;
 }
 @keyframes bgMove {
-    0% { transform: translate(0,0); }
-    50% { transform: translate(-25%,-25%); }
-    100% { transform: translate(0,0); }
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
-/* 時計 */
-#clock {
+#clock-container {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: white;
-    font-size: 10vw;
-    letter-spacing: 0.05em;
-    text-shadow: 0 0 25px rgba(0,0,0,0.8);
+    text-align: center;
 }
 
-/* 状態表示 */
+#clock {
+    color: #00fff2;
+    font-size: 15vw;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2, 0 0 60px #00fff2;
+}
+
+#date {
+    color: rgba(0, 255, 242, 0.7);
+    font-size: 3vw;
+    margin-top: -10px;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 10px #00fff2;
+}
+
 #status {
     position: absolute;
-    top: 3%;
-    right: 3%;
-    color: rgba(255,255,255,0.7);
+    top: 5%;
+    left: 5%;
+    color: #ff00ff;
     font-size: 1.2em;
+    border-left: 3px solid #ff00ff;
+    padding-left: 10px;
+    text-transform: uppercase;
 }
 
 #tapNotice {
     position: absolute;
-    bottom: 5%;
+    bottom: 8%;
     width: 100%;
     text-align: center;
-    color: rgba(255,255,255,0.7);
+    color: white;
+    font-size: 1.5em;
+    letter-spacing: 2px;
+    animation: blink 1.5s infinite;
 }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 
-#player {
-    display: none;
-}
+#player { display: none; }
 </style>
 </head>
 
 <body>
 
 <div id="background"></div>
-<div id="clock">00:00:00</div>
-<div id="status">MODE: SCHEDULE</div>
-<div id="tapNotice">画面を1回タップしてください</div>
+<div id="status">SYSTEM: STANDBY</div>
+<div id="clock-container">
+    <div id="clock">00:00:00</div>
+    <div id="date">2026.01.05 MON</div>
+</div>
+<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
 <div id="player"></div>
 
 <script>
 /* ===================== 設 定 ===================== */
-
-// 初期モード
-let MODE = "schedule"; // "schedule" or "playlist"
-
-// 指定時刻再生
+let MODE = "schedule";
 const SCHEDULE = [
   { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
   { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 10, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 11, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 12, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 13, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 14, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 15, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 16, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 17, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 18, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 19, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 20, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 21, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 22, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 23, min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 22, min: 45, sec: 0,  video: "HSZBQUcB1Dc" } // テスト用に現在の時間近くを足すと確認しやすいです
 ];
-
-// 再生時間（秒）
 const PLAY_DURATION = 30;
 const FADE_OUT_TIME = 5;
-
-// プレイリストID
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
-
 /* =============================================== */
 
-let player;
-let activated = false;
-let playedList = [];
-let fadeTimer;
+let player, activated = false, playedList = [], fadeTimer;
 
-// 時計
+/* ===== 時計と日付の更新 ===== */
 setInterval(() => {
     const now = new Date();
+    
+    // 時刻
     const h = String(now.getHours()).padStart(2,'0');
     const m = String(now.getMinutes()).padStart(2,'0');
     const s = String(now.getSeconds()).padStart(2,'0');
     document.getElementById("clock").textContent = `${h}:${m}:${s}`;
 
+    // 日付
+    const y = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2,'0');
+    const d = String(now.getDate()).padStart(2,'0');
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    document.getElementById("date").textContent = `${y}.${mo}.${d} ${days[now.getDay()]}`;
+
+    // スケジュール判定
     if (activated && MODE === "schedule") {
+        const timeKey = `${h}:${m}:${s}`;
         SCHEDULE.forEach((item, index) => {
-            if (
-                now.getHours() === item.hour &&
-                now.getMinutes() === item.min &&
-                now.getSeconds() === item.sec &&
-                !playedList.includes(index)
-            ) {
+            if (now.getHours() === item.hour && 
+                now.getMinutes() === item.min && 
+                now.getSeconds() === item.sec && 
+                !playedList.includes(timeKey + index)) {
+                
                 playVideo(item.video);
-                playedList.push(index);
+                playedList.push(timeKey + index);
             }
         });
     }
 }, 1000);
 
-// YouTube API
+/* ===== YouTube API ===== */
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
-        height: '0',
-        width: '0',
-        playerVars: {
-            autoplay: 0, // 自動再生OFF
-            controls: 0
-        }
+        height: '0', width: '0',
+        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1 },
+        events: { 'onReady': () => console.log("System Ready") }
     });
 }
 
-// 初回タップで音が鳴るように
+/* ===== 画面タップで起動 ===== */
 document.body.addEventListener('click', () => {
     if (!activated && player) {
         activated = true;
         document.getElementById("tapNotice").style.display = "none";
-
-        player.unMute(); // ミュート解除
+        document.getElementById("status").textContent = "SYSTEM: ONLINE";
+        
+        player.unMute();
         player.setVolume(100);
-
-        // 初期モードに応じて再生
-        if (MODE === "schedule") {
-            // 最初のスケジュール動画はすぐ再生せず待機
-        } else if (MODE === "playlist") {
-            startPlaylist();
-        }
+        player.cuePlaylist({list: PLAYLIST_ID});
+        player.playVideo();
+        
+        setTimeout(() => {
+            player.pauseVideo();
+            updateStatus();
+        }, 600);
     }
-}, { once: true });
+}, {once: true});
 
-// キー操作
+/* キー操作 */
 document.addEventListener('keydown', (e) => {
     if (!activated || !player) return;
-
-    if (e.key === "1") {
-        MODE = "schedule";
-        player.pauseVideo();
-        updateStatus();
-    }
-    if (e.key === "2") {
-        MODE = "playlist";
-        startPlaylist();
-        updateStatus();
-    }
-    if (e.key === "0") {
-        player.pauseVideo();
-    }
+    if (e.key === "1") { MODE = "schedule"; player.pauseVideo(); updateStatus(); }
+    if (e.key === "2") { MODE = "playlist"; startPlaylist(); updateStatus(); }
+    if (e.key === "0") { player.pauseVideo(); }
 });
 
-// プレイリスト開始
 function startPlaylist() {
     clearInterval(fadeTimer);
-    player.loadPlaylist({ list: PLAYLIST_ID });
     player.setVolume(100);
-    player.unMute();
+    player.loadPlaylist({list: PLAYLIST_ID});
 }
 
-// 単曲再生
 function playVideo(videoId) {
     clearInterval(fadeTimer);
-    player.loadVideoById(videoId);
     player.setVolume(100);
-    player.unMute();
+    player.loadVideoById(videoId);
     setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000);
 }
 
-// フェードアウト
 function startFadeOut() {
     let vol = 100;
+    clearInterval(fadeTimer);
     fadeTimer = setInterval(() => {
-        vol -= 2;
-        if (vol <= 0) {
-            player.pauseVideo();
-            clearInterval(fadeTimer);
-        } else {
-            player.setVolume(vol);
-        }
-    }, (FADE_OUT_TIME * 1000) / 50);
+        vol -= 5;
+        if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); }
+        else { player.setVolume(vol); }
+    }, (FADE_OUT_TIME * 1000) / 20);
 }
 
-// 表示更新
 function updateStatus() {
-    document.getElementById("status").textContent =
-        `MODE: ${MODE.toUpperCase()}  [1:SCHEDULE  2:PLAYLIST]`;
+    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`;
 }
-updateStatus();
 </script>
 
 </body>
 </html>
+
 
