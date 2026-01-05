@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Test 03:26</title>
+<title>Cyber & World Clock - Final Karakuri Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-/* --- 全体共通設定（位置固定） --- */
+/* --- 全体共通設定（レイアウト崩れ防止） --- */
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
@@ -28,7 +28,7 @@ body.mode-schedule #background {
 
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- からくり時計演出 --- */
+/* --- からくり時計演出レイヤー --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -41,26 +41,24 @@ body.mode-schedule #background {
 .stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
-.moon-face { top: 20%; left: 45%; animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
+.moon-face { top: 20%; left: 45%; animation: swing 3.5s ease-in-out infinite alternate; transform-origin: top center; }
 @keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
-.bear { bottom: 10%; left: 20%; animation: peek 4s ease-in-out infinite; }
-.bear-right { bottom: 15%; right: 20%; animation: peek 4.5s ease-in-out infinite reverse; }
-@keyframes peek { 0%, 100% { transform: translateY(20vh); } 50% { transform: translateY(0); } }
-.flower { top: 15%; right: 15%; animation: spin 6s linear infinite; }
+.bear { bottom: 12%; left: 20%; animation: peek 4s ease-in-out infinite; }
+.bear-right { bottom: 18%; right: 20%; animation: peek 4.5s ease-in-out infinite reverse; }
+@keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
+.flower { top: 15%; right: 18%; animation: spin 7s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.sun-bright { top: 10%; left: 15%; animation: pulse 3s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+.sun-bright { top: 12%; left: 18%; animation: pulse 3s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
-/* 配置・レイアウト */
+/* --- 基本配置 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; transition: all 0.5s; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; transition: all 0.5s; }
 
-/* 配色：サイバーモード */
+/* 配色切替 */
 body.mode-standby #clock, body.mode-playlist #clock { color: #00fff2; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; }
 body.mode-standby #date, body.mode-playlist #date { color: rgba(0, 255, 242, 0.7); }
-
-/* 配色：スモールワールドモード */
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
@@ -79,7 +77,6 @@ body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db709
 body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right-color: #00fff2; }
 body.mode-schedule .event-item.next-up { color: #db7093; border-right-color: #db7093; }
 
-/* 予定リストの文字色（修正済み） */
 .event-item { font-size: 1.1em; margin-bottom: 8px; white-space: nowrap; transition: all 0.5s; overflow: hidden; text-overflow: ellipsis; }
 body.mode-standby .event-item, body.mode-playlist .event-item { color: #ffffff !important; opacity: 1; }
 body.mode-schedule .event-item { color: #6a5acd; opacity: 1; }
@@ -96,7 +93,9 @@ body.mode-schedule .event-date-tag { border-color: #db7093; color: #db7093; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; transition: all 0.5s; }
 body.mode-standby #location-tag, body.mode-playlist #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
 body.mode-schedule #location-tag { color: #db7093; }
-.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; gap: 40px; border-radius: 15px; width: 60%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; left: 20%; }
+
+#weather-display-area { position: relative; width: 100%; height: 10vw; display: flex; justify-content: center; align-items: center; }
+.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; gap: 40px; border-radius: 15px; width: 60%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; }
 body.mode-standby .weather-panel, body.mode-playlist .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
 body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -111,6 +110,7 @@ body.mode-schedule #decoration-layer { opacity: 0.6; }
 
 <body class="mode-standby">
 <div id="background"></div>
+
 <div id="karakuri-overlay">
     <div class="door door-left">✨</div>
     <div class="door door-right">✨</div>
@@ -169,12 +169,8 @@ const LAT = 35.6895; const LON = 139.6917;
 
 let MODE = "standby"; 
 const MODES_LIST = ["standby", "schedule", "playlist"];
-
-// 【テスト用】3時26分の時報スケジュール
-const SCHEDULE = [
-    { hour: 3, min: 25, sec: 13, video: "HSZBQUcB1Dc" }, 
-    ...Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" }))
-];
+// 毎時59分13秒に作動（00分00秒に扉が開くタイミング）
+const SCHEDULE = Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" }));
 
 let player, activated = false;
 let tokenClient, gapiInited = false, gisInited = false;
@@ -189,7 +185,7 @@ async function listUpcomingEvents() {
         const list = document.getElementById("calendar-list");
         const events = response.result.items;
         list.innerHTML = "";
-        if (!events || events.length === 0) { list.innerHTML = '<div>NO EVENTS</div>'; return; }
+        if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
         const today = new Date();
         events.forEach((event, index) => {
             const start = new Date(event.start.dateTime || event.start.date);
