@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Final Fixed</title>
+<title>Cyber Clock - Shinjuku Interactive Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -36,7 +36,15 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 .f-icon { font-size: 3vw; color: #fff; margin: 5px 0; }
 .f-temp { font-size: 1.5vw; color: #fff; font-weight: bold; }
 
-#status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; text-transform: uppercase; z-index: 100; }
+/* ステータス部分をボタン化 */
+#status { 
+    position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; 
+    border-left: 3px solid #ff00ff; padding: 10px 15px; text-transform: uppercase; z-index: 100; 
+    cursor: pointer; background: rgba(255, 0, 255, 0.05); transition: background 0.3s;
+    user-select: none;
+}
+#status:hover { background: rgba(255, 0, 255, 0.2); }
+
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 #player { display: none; }
@@ -45,7 +53,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 <body>
 <div id="background"></div>
-<div id="status">SYSTEM: STANDBY</div>
+<div id="status" onclick="handleStatusClick()">SYSTEM: STANDBY</div>
 
 <div id="clock-container">
     <div id="date">0000.00.00 ---</div>
@@ -115,7 +123,6 @@ async function updateWeather() {
     } catch (e) { console.log("Weather Error"); }
 }
 
-// パネル切り替え間隔を 10000ms (10秒) に修正
 function switchPanels() {
     const p1 = document.getElementById("panel-current");
     const p2 = document.getElementById("panel-forecast");
@@ -171,39 +178,74 @@ function onYouTubeIframeAPIReady() {
     });
 }
 
-document.body.addEventListener('click', () => {
-    if (!activated && player) {
-        activated = true;
-        document.getElementById("tapNotice").style.display = "none";
-        document.getElementById("status").textContent = "SYSTEM: ONLINE";
-        // 最初はプレイリストを読み込み、ループ設定を有効化
-        player.loadPlaylist({list: PLAYLIST_ID});
-        setTimeout(() => {
-            player.setLoop(true);
-            player.mute(); // 初期状態(スケジュールモード)はミュートで再生開始
-            player.playVideo();
-            updateStatus();
-        }, 1500);
+function updateStatus() { 
+    const guide = (MODE === "schedule") ? "[Click/Press ←→]" : "[Click/Press ←→]";
+    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()} ${guide}`; 
+}
+
+function toggleMode() {
+    if (!activated) return;
+    if (MODE === "schedule") {
+        MODE = "playlist";
+        player.unMute();
+        player.setVolume(100);
+    } else {
+        MODE = "schedule";
+        player.mute();
+    }
+    updateStatus();
+}
+
+// ピンク色のステータス部分がクリックされた時の処理
+function handleStatusClick() {
+    if (!activated) {
+        // まだ起動していない場合は全体の起動処理を行う
+        startSystem();
+    } else {
+        toggleMode();
+    }
+}
+
+// 起動処理
+function startSystem() {
+    if (activated || !player) return;
+    activated = true;
+    document.getElementById("tapNotice").style.display = "none";
+    player.loadPlaylist({list: PLAYLIST_ID});
+    setTimeout(() => {
+        player.setLoop(true);
+        player.mute(); 
+        player.playVideo();
+        updateStatus();
+    }, 1500);
+}
+
+// 画面全体のタップ（初回起動のみ）
+document.body.addEventListener('click', (e) => {
+    // ステータス部分以外がクリックされた時
+    if (e.target.id !== "status") {
+        startSystem();
     }
 }, {once: true});
 
+// リモコン操作
 document.addEventListener('keydown', (e) => {
     if (!activated || !player) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        toggleMode();
+    }
+    // 予備キー
     if (e.key === "1") { MODE = "schedule"; player.mute(); updateStatus(); }
     if (e.key === "2") { MODE = "playlist"; player.unMute(); player.setVolume(100); updateStatus(); }
-    if (e.key === "0") { player.mute(); }
 });
 
 function playScheduleVideo(videoId) {
     const currentPlaylistIndex = player.getPlaylistIndex();
     const currentTime = player.getCurrentTime();
-    
     player.loadVideoById(videoId);
     player.unMute();
     player.setVolume(100);
-    
     setTimeout(() => {
-        // スケジュール動画終了後、プレイリストの元の位置へ復帰
         player.loadPlaylist({
             list: PLAYLIST_ID,
             index: currentPlaylistIndex,
@@ -213,8 +255,6 @@ function playScheduleVideo(videoId) {
         if(MODE === "schedule") { player.mute(); }
     }, 25000);
 }
-
-function updateStatus() { document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; }
 </script>
 </body>
 </html>
