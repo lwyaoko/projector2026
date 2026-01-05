@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Clock + YouTube Controller</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<style>
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: black;
+}
+#background {
+    position: fixed;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(120deg,#0f2027,#203a43,#2c5364,#1b1b1b);
+    animation: bgMove 60s linear infinite;
+    z-index: -1;
+}
+@keyframes bgMove {0% {transform: translate(0,0);}50% {transform: translate(-25%,-25%);}100% {transform: translate(0,0);}}
+#clock {position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 10vw; letter-spacing: 0.05em; text-shadow: 0 0 25px rgba(0,0,0,0.8);}
+#status {position: absolute; top: 3%; right: 3%; color: rgba(255,255,255,0.7); font-size: 1.2em;}
+#tapNotice {position: absolute; bottom: 5%; width: 100%; text-align: center; color: rgba(255,255,255,0.7);}
+#player {display: none;}
+</style>
+</head>
+
+<body>
+
+<div id="background"></div>
+<div id="clock">00:00:00</div>
+<div id="status">MODE: SCHEDULE</div>
+<div id="tapNotice">画面を1回タップしてください</div>
+<div id="player"></div>
+
+<script>
+/* ===================== 設 定 ===================== */
+let MODE = "schedule";
+const SCHEDULE = [
+  { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
+  { hour: 10, min: 59, sec: 13, video: "HSZBQUcB1Dc" }
+];
+const PLAY_DURATION = 30;
+const FADE_OUT_TIME = 5;
+const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+/* =============================================== */
+
+let player, activated=false, playedList=[], fadeTimer;
+
+/* ===== 時計 ===== */
+setInterval(() => {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById("clock").textContent = `${h}:${m}:${s}`;
+
+    if (activated && MODE==="schedule") {
+        SCHEDULE.forEach((item,index)=>{
+            if(now.getHours()===item.hour && now.getMinutes()===item.min && now.getSeconds()===item.sec && !playedList.includes(index)){
+                playVideo(item.video);
+                playedList.push(index);
+            }
+        });
+    }
+},1000);
+
+/* ===== YouTube API ===== */
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+document.body.appendChild(tag);
+
+function onYouTubeIframeAPIReady(){
+    player = new YT.Player('player',{
+        height:'0', width:'0',
+        playerVars:{autoplay:0, controls:0}
+    });
+}
+
+/* ===== 初回タップで音声解放 ===== */
+document.body.addEventListener('click', () => {
+    if(!activated && player){
+        activated = true;
+        document.getElementById("tapNotice").style.display="none";
+
+        player.unMute();
+        player.setVolume(100);
+
+        // プレイリストを一瞬再生してすぐ止める → ユーザー操作として認識
+        player.loadPlaylist({list: PLAYLIST_ID});
+        player.playVideo();
+        setTimeout(()=>player.pauseVideo(),300);
+
+        updateStatus();
+    }
+},{once:true});
+
+/* ===== キー操作 ===== */
+document.addEventListener('keydown',(e)=>{
+    if(!activated || !player) return;
+    if(e.key==="1"){MODE="schedule"; player.pauseVideo(); updateStatus();}
+    if(e.key==="2"){MODE="playlist"; startPlaylist(); updateStatus();}
+    if(e.key==="0"){player.pauseVideo();}
+});
+
+/* ===== プレイリスト再生 ===== */
+function startPlaylist(){
+    clearInterval(fadeTimer);
+    player.loadPlaylist({list:PLAYLIST_ID});
+    player.setVolume(100);
+    player.unMute();
+}
+
+/* ===== 単曲再生 ===== */
+function playVideo(videoId){
+    clearInterval(fadeTimer);
+    player.loadVideoById(videoId);
+    player.setVolume(100);
+    player.unMute();
+    setTimeout(startFadeOut,(PLAY_DURATION-FADE_OUT_TIME)*1000);
+}
+
+/* ===== フェードアウト ===== */
+function startFadeOut(){
+    let vol=100;
+    fadeTimer = setInterval(()=>{
+        vol-=2;
+        if(vol<=0){player.pauseVideo(); clearInterval(fadeTimer);}
+        else{player.setVolume(vol);}
+    },(FADE_OUT_TIME*1000)/50);
+}
+
+/* ===== ステータス表示 ===== */
+function updateStatus(){
+    document.getElementById("status").textContent=`MODE: ${MODE.toUpperCase()}  [1:SCHEDULE  2:PLAYLIST]`;
+}
+updateStatus();
+</script>
+
+</body>
+</html>
