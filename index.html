@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku AMeDAS Precision</title>
+<title>Cyber Clock - Shinjuku Final Centered</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -19,7 +19,19 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; }
-#location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
+
+/* 地名タグの中央揃え調整 */
+#location-tag { 
+    color: #ff00ff; 
+    font-size: 2vw; 
+    letter-spacing: 0.5em; 
+    margin-bottom: 15px; 
+    text-shadow: 0 0 10px #ff00ff; 
+    font-weight: bold;
+    display: block;
+    width: 100%;
+    text-align: center; /* 中央揃え */
+}
 
 #amedas-box { 
     display: flex; justify-content: center; align-items: center; gap: 50px; 
@@ -49,7 +61,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 </div>
 
 <div id="weather-section">
-    <div id="location-tag">TOKYO / SHINJUKU (AMeDAS LIVE)</div>
+    <div id="location-tag">TOKYO / SHINJUKU</div>
     <div id="amedas-box">
         <div id="main-icon" class="weather-main-icon">--</div>
         <div class="amedas-details">
@@ -69,57 +81,48 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 <div id="player"></div>
 
 <script>
-/* ===================== 設 定 ===================== */
-const STATION_ID = "44132"; // 新宿アメダス地点ID
+const STATION_ID = "44132"; 
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
-/* =============================================== */
 
-let player, activated = false, playedList = [], fadeTimer;
+let player, activated = false, playedList = [], fadeTimer, MODE = "schedule";
 
-// アイコン自前判定（降水量と気温から）
 function judgeWeatherIcon(prec, temp) {
     const isNight = new Date().getHours() >= 18 || new Date().getHours() < 6;
     if (prec > 0) {
-        if (temp < 2) return "❄"; // 雪
-        if (prec >= 5) return "⛈"; // 強い雨
-        return "☔"; // 雨
+        if (temp < 2) return "❄"; 
+        if (prec >= 5) return "⛈"; 
+        return "☔"; 
     }
-    return isNight ? "🌙" : "☀"; // 晴れ
+    return isNight ? "🌙" : "☀"; 
 }
 
-// Qiitaの手法：latest_time.jsonを取得してからデータを追いかける
-async function updateAMeDAS() {
+async function updateAMeDAS(retryOffset = 0) {
     try {
-        // 1. 最新の観測時刻（10分単位）を取得
         const latestRes = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.json");
         const latestTimeRaw = await latestRes.json();
-        const d = new Date(latestTimeRaw);
+        let d = new Date(latestTimeRaw);
         
-        // 2. 取得用URLを作成
+        if (retryOffset > 0) d = new Date(d.getTime() - retryOffset);
+
         const timeStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}${String(d.getHours()).padStart(2,'0')}${String(Math.floor(d.getMinutes()/10)*10).padStart(2,'0')}00`;
         
-        // 3. その時刻の地図JSONを取得
         const dataRes = await fetch(`https://www.jma.go.jp/bosai/amedas/data/map/${timeStr}.json`);
-        const amedasData = await dataRes.json();
+        if (!dataRes.ok && retryOffset === 0) return updateAMeDAS(600000); 
         
-        // 4. 新宿(44132)のデータを抽出
+        const amedasData = await dataRes.json();
         const shinjuku = amedasData[STATION_ID];
 
         if (shinjuku) {
             const temp = shinjuku.temp ? shinjuku.temp[0] : 0;
             const prec = shinjuku.precipitation1h ? shinjuku.precipitation1h[0] : 0;
-            
             document.getElementById("temp-val").textContent = temp + "°C";
             document.getElementById("prec-val").textContent = prec + "mm";
             document.getElementById("main-icon").textContent = judgeWeatherIcon(prec, temp);
         }
-    } catch (e) { 
-        console.log("AMeDAS Error: ファイルがまだ生成されていない可能性があります。"); 
-    }
+    } catch (e) { console.log("Weather fetch error"); }
 }
 
-// 流れ星生成
 function createShootingStar() {
     const star = document.createElement('div');
     star.className = 'shooting-star';
@@ -129,7 +132,6 @@ function createShootingStar() {
     setTimeout(() => star.remove(), 2500);
 }
 
-// 1秒ごとの時計・流れ星・スケジュール管理
 setInterval(() => {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
@@ -154,11 +156,9 @@ setInterval(() => {
     }
 }, 1000);
 
-// 初回実行と10分おき更新
 updateAMeDAS();
 setInterval(updateAMeDAS, 600000);
 
-/* --- YouTube API --- */
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
