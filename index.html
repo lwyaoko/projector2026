@@ -3,58 +3,97 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber Clock - Mode Selector Edition</title>
+<title>World Clock - Shinjuku Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-/* --- デザイン設定 --- */
-html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; }
-#background { position: fixed; width: 200%; height: 200%; background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); background-size: 400% 400%; animation: bgMove 30s ease infinite; z-index: -1; opacity: 0.4; }
+/* --- 全体共通設定 --- */
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; transition: background 2s ease; }
+#background { position: fixed; width: 200%; height: 200%; z-index: -1; transition: all 2s ease; }
+
+/* --- サイバー/通常背景 (STANDBY/PLAYLIST) --- */
+body.mode-standby, body.mode-playlist { background: #000; }
+body.mode-standby #background, body.mode-playlist #background { 
+    background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
+    background-size: 400% 400%; animation: bgMove 30s ease infinite; opacity: 0.4; 
+}
+
+/* --- スモールワールド背景 (SCHEDULE) --- */
+body.mode-schedule { background: #fdf5e6; } /* クリーム色ベース */
+body.mode-schedule #background { 
+    background: linear-gradient(135deg, #ffcce0 0%, #ccf2ff 50%, #e0ccff 100%);
+    opacity: 1; animation: bgMove 20s ease infinite;
+}
+
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.shooting-star { position: absolute; top: -10px; width: 2px; height: 120px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2, #fff); opacity: 0; z-index: 0; pointer-events: none; }
-@keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(110vh) translateX(110vh) rotate(-45deg); opacity: 0; } }
-#clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
-#clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
-#date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
-#status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding: 10px 15px; text-transform: uppercase; z-index: 100; cursor: pointer; background: rgba(255, 0, 255, 0.05); transition: background 0.3s; user-select: none; }
-#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; }
-#calendar-title { color: #00fff2; font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; opacity: 0.8; }
-.event-item.next-up { color: #fff; font-size: 1.8em; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right: 4px solid #00fff2; padding-right: 15px; }
-.event-item.next-up .event-time { font-size: 0.7em; display: block; margin-bottom: 2px; color: #00fff2; }
-.event-item { color: #fff; font-size: 1.1em; margin-bottom: 8px; opacity: 0.7; animation: slideIn 0.5s ease-out forwards; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.event-time { color: #00fff2; font-weight: bold; margin-right: 8px; font-size: 0.85em; }
+
+/* スモールワールド風デコレーション */
+#decoration-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; display: none; opacity: 0.6; }
+body.mode-schedule #decoration-layer { display: block; }
+
+.small-sun { position: absolute; top: 10%; left: 10%; width: 10vw; height: 10vw; background: #ffdf00; border-radius: 50%; box-shadow: 0 0 20px #ffa500; }
+.small-sun::after { content: "☀️"; font-size: 6vw; display: flex; justify-content: center; align-items: center; height: 100%; }
+
+/* 時計デザインの切り替え */
+#clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; transition: all 1s; }
+body.mode-standby #clock, body.mode-playlist #clock { color: #00fff2; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; }
+body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
+
+#date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; transition: all 1s; }
+body.mode-standby #date, body.mode-playlist #date { color: rgba(0, 255, 242, 0.7); }
+body.mode-schedule #date { color: #db7093; font-weight: bold; }
+
+/* ステータス/カレンダー/天気のスタイル切り替え */
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; transition: all 1s; }
+body.mode-standby #status, body.mode-playlist #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
+body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
+
+#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; transition: all 1s; }
+body.mode-schedule #calendar-container { background: rgba(255, 255, 255, 0.7); padding: 15px; border-radius: 15px; border: 2px dashed #db7093; }
+
+.event-item.next-up { font-size: 1.8em; margin-bottom: 15px; transition: all 1s; }
+body.mode-standby .event-item.next-up, body.mode-playlist .event-item.next-up { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); border-right: 4px solid #00fff2; padding-right: 15px; }
+body.mode-schedule .event-item.next-up { color: #db7093; border-right: 4px solid #db7093; text-shadow: none; }
+
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; height: 15vw; }
-#location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
-#weather-display-area { position: relative; width: 100%; height: 10vw; display: flex; justify-content: center; align-items: center; }
-.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; gap: 40px; background: rgba(0, 0, 0, 0.8); padding: 20px 40px; border-radius: 15px; border: 1px solid rgba(255, 0, 255, 0.3); width: 60%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; }
+.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 20px 40px; border-radius: 15px; width: 60%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; left: 20%; }
+body.mode-standby .weather-panel, body.mode-playlist .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); }
+body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 #player { display: none; }
 </style>
 </head>
 
-<body>
+<body class="mode-standby">
 <div id="background"></div>
+<div id="decoration-layer">
+    <div class="small-sun"></div>
+    <div style="position:absolute; bottom:10%; right:10%; font-size:5vw;">🌸🌼❄️</div>
+</div>
 <div id="status" onclick="handleStatusClick()">SYSTEM: START</div>
+
 <div id="calendar-container">
-    <div id="calendar-title">UPCOMING SCHEDULE</div>
+    <div id="calendar-title" style="color:#00fff2">UPCOMING SCHEDULE</div>
     <div id="calendar-list"></div>
 </div>
+
 <div id="clock-container">
     <div id="date">0000.00.00 ---</div>
     <div id="clock">00:00:00</div>
 </div>
+
 <div id="weather-section">
-    <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="weather-display-area">
+    <div id="location-tag" style="color:#ff00ff">TOKYO / SHINJUKU</div>
+    <div id="weather-display-area" style="height: 12vw; position: relative;">
         <div id="panel-current" class="weather-panel active">
-            <div id="main-icon" style="font-size:6vw; color:#fff; min-width:8vw; text-align:center;">--</div>
+            <div id="main-icon" style="font-size:6vw; min-width:8vw; text-align:center;">--</div>
             <div style="display:flex; gap:30px; text-align:left;">
-                <div><div style="font-size:1vw; color:#ff00ff;">TEMP</div><div id="temp-val" style="font-size:3vw; color:#fff; font-weight:bold;">--°C</div></div>
-                <div><div style="font-size:1vw; color:#ff00ff;">PRECIP</div><div id="prec-val" style="font-size:3vw; color:#fff; font-weight:bold;">--mm</div></div>
+                <div><div style="font-size:1vw; opacity:0.7;">TEMP</div><div id="temp-val" style="font-size:3vw; font-weight:bold;">--°C</div></div>
+                <div><div style="font-size:1vw; opacity:0.7;">PRECIP</div><div id="prec-val" style="font-size:3vw; font-weight:bold;">--mm</div></div>
             </div>
         </div>
         <div id="panel-forecast" class="weather-panel">
@@ -76,12 +115,8 @@ const BASE_VIDEO_ID = "LDmImf4WIk4";
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const LAT = 35.6895; const LON = 139.6917;
 
-// モード管理: "standby" (無音), "schedule" (音あり予定), "playlist" (音あり音楽)
 let MODE = "standby"; 
-const SCHEDULE = [
-  ...Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" })),
-  { hour: 2, min: 35, sec: 13, video: "HSZBQUcB1Dc" }
-];
+const SCHEDULE = Array.from({length: 24}, (_, i) => ({ hour: i, min: 59, sec: 13, video: "HSZBQUcB1Dc" }));
 
 let player, activated = false;
 let tokenClient, gapiInited = false, gisInited = false;
@@ -97,44 +132,16 @@ async function listUpcomingEvents() {
         const events = response.result.items;
         list.innerHTML = "";
         if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
+        const today = new Date();
         events.forEach((event, index) => {
             const start = new Date(event.start.dateTime || event.start.date);
             const end = new Date(event.end.dateTime || event.end.date);
-            let dateTag = (start.getDate() !== (new Date()).getDate()) ? `<span style="color:#ff00ff; font-size:0.7em; border:1px solid #ff00ff; padding:0 3px; margin-right:5px;">${start.getMonth()+1}/${start.getDate()}</span>` : "";
+            let dateTag = (start.getDate() !== today.getDate()) ? `<span style="font-size:0.7em; border:1px solid currentColor; padding:0 3px; margin-right:5px;">${start.getMonth()+1}/${start.getDate()}</span>` : "";
             const timeRange = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}` : "ALL DAY";
             const itemClass = (index === 0) ? "event-item next-up" : "event-item";
             list.innerHTML += `<div class="${itemClass}">${dateTag}<span class="event-time">${timeRange}</span>${event.summary}</div>`;
         });
     } catch (err) {}
-}
-function handleAuth() {
-    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
-    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
-}
-
-/* --- 天気 (維持) --- */
-function getWeatherIcon(code, isNight = false) {
-    if (code === 0) return isNight ? "🌙" : "☀";
-    if (code <= 3) return "☁";
-    if (code >= 51 && code <= 67) return "☔";
-    return "✨";
-}
-async function updateWeather() {
-    try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
-        const res = await fetch(url); const data = await res.json();
-        document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
-        document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
-        const hour = new Date().getHours();
-        document.getElementById("main-icon").textContent = getWeatherIcon(data.current.weather_code, hour >= 18 || hour < 6);
-        const container = document.getElementById("forecast-container");
-        let html = "";
-        for (let i = 3; i <= 12; i += 3) {
-            const idx = (hour + i) % 24;
-            html += `<div style="text-align:center;"><div style="font-size:1vw; color:#ff00ff;">${idx}時</div><div style="font-size:3vw; color:#fff; margin:5px 0;">${getWeatherIcon(data.hourly.weather_code[hour+i], idx >= 18 || idx < 6)}</div><div style="font-size:1.5vw; color:#fff;">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
-        }
-        container.innerHTML = html;
-    } catch (e) {}
 }
 
 /* --- 時計 ＆ モードロジック --- */
@@ -144,7 +151,6 @@ setInterval(() => {
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
 
-    // スケジュール判定（schedule モード時のみ音が出るように制御）
     if (activated && MODE === "schedule" && s !== lastExecutedSecond) {
         const match = SCHEDULE.find(item => item.hour === h && item.min === m && item.sec === s);
         if (match) {
@@ -153,14 +159,6 @@ setInterval(() => {
             player.unMute();
             player.playVideo();
         }
-    }
-    if (s === 0) {
-        for(let i=0; i<3; i++) setTimeout(() => {
-            const star = document.createElement('div'); star.className = 'shooting-star';
-            star.style.left = (Math.random() * 80 + 10) + 'vw';
-            star.style.animation = `shoot ${1 + Math.random()}s ease-in forwards`;
-            document.body.appendChild(star); setTimeout(() => star.remove(), 2500);
-        }, i * 400);
     }
 }, 1000);
 
@@ -192,7 +190,6 @@ function startSystem() {
     if (activated) return;
     activated = true;
     document.getElementById("tapNotice").style.display = "none";
-    // 起動時は standby (無音)
     player.loadVideoById(BASE_VIDEO_ID);
     setTimeout(() => { 
         player.mute(); 
@@ -208,7 +205,6 @@ function handleStatusClick() {
 }
 
 function toggleMode() {
-    // standby -> schedule -> playlist の順に切り替え
     if (MODE === "standby") {
         MODE = "schedule";
         player.loadVideoById(BASE_VIDEO_ID);
@@ -227,12 +223,31 @@ function toggleMode() {
 
 function updateStatus() { 
     document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; 
+    // bodyのクラスを更新してCSSを切り替え
+    document.body.className = "mode-" + MODE;
 }
 
 document.body.addEventListener('click', () => { if(!activated) startSystem(); });
-document.addEventListener('keydown', (e) => { if (activated && (e.key === "ArrowLeft" || e.key === "ArrowRight")) toggleMode(); });
 
 const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
+// 天気API（新宿）
+async function updateWeather() {
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
+        const res = await fetch(url); const data = await res.json();
+        document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
+        document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
+        const hour = new Date().getHours();
+        document.getElementById("main-icon").textContent = (data.current.weather_code === 0) ? "☀" : "☁";
+        const container = document.getElementById("forecast-container");
+        let html = "";
+        for (let i = 3; i <= 12; i += 3) {
+            const idx = (hour + i) % 24;
+            html += `<div style="text-align:center;"><div style="font-size:1vw;">${idx}時</div><div style="font-size:3vw; margin:5px 0;">${(data.hourly.weather_code[hour+i] === 0) ? "☀" : "☁"}</div><div style="font-size:1.5vw;">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
+        }
+        container.innerHTML = html;
+    } catch (e) {}
+}
 updateWeather(); setInterval(updateWeather, 900000); 
 setInterval(() => {
     const p1 = document.getElementById("panel-current"), p2 = document.getElementById("panel-forecast");
