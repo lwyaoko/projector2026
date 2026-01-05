@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber Clock - Shinjuku Final</title>
+<title>Cyber Clock - Shinjuku Final Complete</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -44,50 +44,4 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-#player { display: none; }
-</style>
-</head>
-
-<body>
-<div id="background"></div>
-<div id="status" onclick="handleStatusClick()">SYSTEM: STANDBY</div>
-
-<div id="calendar-container">
-    <div id="calendar-title">UPCOMING SCHEDULE</div>
-    <div id="calendar-list"><div class="event-item" style="font-size:0.8em; opacity:0.5;">AWAITING AUTH...</div></div>
-</div>
-
-<div id="clock-container">
-    <div id="date">0000.00.00 ---</div>
-    <div id="clock">00:00:00</div>
-</div>
-
-<div id="weather-section">
-    <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="weather-display-area">
-        <div id="panel-current" class="weather-panel active">
-            <div id="main-icon" class="weather-main-icon">--</div>
-            <div style="display:flex; gap:30px; text-align:left;">
-                <div style="display:flex; flex-direction:column;"><div style="font-size:1vw; color:#ff00ff;">TEMPERATURE</div><div id="temp-val" class="value">--°C</div></div>
-                <div style="display:flex; flex-direction:column;"><div style="font-size:1vw; color:#ff00ff;">PRECIPITATION</div><div id="prec-val" class="value">--mm</div></div>
-            </div>
-        </div>
-        <div id="panel-forecast" class="weather-panel">
-            <div id="forecast-container" class="forecast-list"></div>
-        </div>
-    </div>
-</div>
-
-<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
-<div id="player"></div>
-
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
-<script>
-/* ===================== 設定 ===================== */
-const CLIENT_ID = '751679996100-jpv7socqnm0ldlv6b5fp0uavbdq6a24u.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyAlT8AxD8pq3iqIV7By4calMIKLzG_vDe8';
-const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES =
+@keyframes slideIn {
