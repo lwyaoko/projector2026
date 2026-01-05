@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku AMeDAS Final</title>
+<title>Cyber Clock - Shinjuku AMeDAS Precision</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -11,7 +11,6 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #background { position: fixed; width: 200%; height: 200%; background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); background-size: 400% 400%; animation: bgMove 30s ease infinite; z-index: -1; opacity: 0.4; }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* 流れ星：3本/分 設定 */
 .shooting-star { position: absolute; top: -10px; width: 2px; height: 120px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2, #fff); opacity: 0; z-index: 0; pointer-events: none; }
 @keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(110vh) translateX(110vh) rotate(-45deg); opacity: 0; } }
 
@@ -19,7 +18,6 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
-/* 天気表示セクション */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; }
 #location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
 
@@ -56,11 +54,11 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
         <div id="main-icon" class="weather-main-icon">--</div>
         <div class="amedas-details">
             <div class="amedas-item">
-                <div class="label">TEMP</div>
+                <div class="label">TEMPERATURE</div>
                 <div id="temp-val" class="value">--°C</div>
             </div>
             <div class="amedas-item">
-                <div class="label">RAIN (1h)</div>
+                <div class="label">PRECIPITATION (1h)</div>
                 <div id="prec-val" class="value">--mm</div>
             </div>
         </div>
@@ -72,42 +70,40 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 <script>
 /* ===================== 設 定 ===================== */
-const STATION_ID = "44132"; // 新宿地点ID
-let MODE = "schedule";
-const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
+const STATION_ID = "44132"; // 新宿アメダス地点ID
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
-const PLAY_DURATION = 30;
-const FADE_OUT_TIME = 5;
+const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
 /* =============================================== */
 
 let player, activated = false, playedList = [], fadeTimer;
 
-// アメダス実測値からアイコンを自前判定
+// アイコン自前判定（降水量と気温から）
 function judgeWeatherIcon(prec, temp) {
-    const hour = new Date().getHours();
-    const isNight = hour >= 18 || hour < 6;
+    const isNight = new Date().getHours() >= 18 || new Date().getHours() < 6;
     if (prec > 0) {
-        if (temp < 2) return "❄"; 
-        if (prec >= 5) return "⛈"; 
-        return "☔";
+        if (temp < 2) return "❄"; // 雪
+        if (prec >= 5) return "⛈"; // 強い雨
+        return "☔"; // 雨
     }
-    return isNight ? "🌙" : "☀"; 
+    return isNight ? "🌙" : "☀"; // 晴れ
 }
 
-// アメダス最新10分値をリアルタイム取得
+// Qiitaの手法：latest_time.jsonを取得してからデータを追いかける
 async function updateAMeDAS() {
     try {
-        // 最新時刻の確認
+        // 1. 最新の観測時刻（10分単位）を取得
         const latestRes = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.json");
-        const latestTimeRaw = await latestRes.json(); //
+        const latestTimeRaw = await latestRes.json();
         const d = new Date(latestTimeRaw);
         
-        // 取得用URLフォーマット作成
+        // 2. 取得用URLを作成
         const timeStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}${String(d.getHours()).padStart(2,'0')}${String(Math.floor(d.getMinutes()/10)*10).padStart(2,'0')}00`;
         
-        // 新宿地点を含むマップデータの取得
-        const dataRes = await fetch(`https://www.jma.go.jp/bosai/amedas/data/map/${timeStr}.json`); //
+        // 3. その時刻の地図JSONを取得
+        const dataRes = await fetch(`https://www.jma.go.jp/bosai/amedas/data/map/${timeStr}.json`);
         const amedasData = await dataRes.json();
+        
+        // 4. 新宿(44132)のデータを抽出
         const shinjuku = amedasData[STATION_ID];
 
         if (shinjuku) {
@@ -118,9 +114,12 @@ async function updateAMeDAS() {
             document.getElementById("prec-val").textContent = prec + "mm";
             document.getElementById("main-icon").textContent = judgeWeatherIcon(prec, temp);
         }
-    } catch (e) { console.log("AMeDAS fetch failed"); }
+    } catch (e) { 
+        console.log("AMeDAS Error: ファイルがまだ生成されていない可能性があります。"); 
+    }
 }
 
+// 流れ星生成
 function createShootingStar() {
     const star = document.createElement('div');
     star.className = 'shooting-star';
@@ -130,6 +129,7 @@ function createShootingStar() {
     setTimeout(() => star.remove(), 2500);
 }
 
+// 1秒ごとの時計・流れ星・スケジュール管理
 setInterval(() => {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
@@ -139,7 +139,6 @@ setInterval(() => {
     const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
 
-    // 毎分3本
     if (s === "00") {
         for(let i=0; i<3; i++) setTimeout(createShootingStar, i * 500);
     }
@@ -155,8 +154,9 @@ setInterval(() => {
     }
 }, 1000);
 
+// 初回実行と10分おき更新
 updateAMeDAS();
-setInterval(updateAMeDAS, 600000); // 10分更新
+setInterval(updateAMeDAS, 600000);
 
 /* --- YouTube API --- */
 const tag = document.createElement('script');
@@ -188,8 +188,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 function startPlaylist() { clearInterval(fadeTimer); player.setVolume(100); player.unMute(); player.loadPlaylist({list: PLAYLIST_ID}); player.playVideo(); }
-function playVideo(videoId) { clearInterval(fadeTimer); player.setVolume(100); player.unMute(); player.loadVideoById(videoId); setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000); }
-function startFadeOut() { let vol = 100; fadeTimer = setInterval(() => { vol -= 5; if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); } else { player.setVolume(vol); } }, (FADE_OUT_TIME * 1000) / 20); }
+function playVideo(videoId) { clearInterval(fadeTimer); player.setVolume(100); player.unMute(); player.loadVideoById(videoId); setTimeout(startFadeOut, 25000); }
+function startFadeOut() { let vol = 100; fadeTimer = setInterval(() => { vol -= 5; if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); } else { player.setVolume(vol); } }, 250); }
 function updateStatus() { document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; }
 </script>
 </body>
