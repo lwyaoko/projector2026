@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Hybrid v2</title>
+<title>Cyber Clock - Shinjuku Smart Weather</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -20,7 +20,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
-/* 天気エリア（場所表示を時計の下へ） */
+/* 天気エリア */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; max-width: 1000px; text-align: center; z-index: 20; }
 #location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
 
@@ -30,7 +30,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 .w-icon { font-size: 2vw; margin: 3px 0; }
 .w-temp { color: #fff; font-weight: bold; }
 
-/* ステータス・通知 */
+/* ステータス */
 #status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; text-transform: uppercase; z-index: 100; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
@@ -84,10 +84,12 @@ function getIcon(code) {
     return "✨";
 }
 
+// 天気更新（現在時刻に合わせたフィルタリング）
 async function updateWeather() {
     try {
         const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
         const data = await res.json();
+        
         const timeSeries = data[0].timeSeries;
         const codes = timeSeries[0].areas[0].weatherCodes;
         const times = timeSeries[0].timeDefines;
@@ -97,15 +99,24 @@ async function updateWeather() {
         const rowIcon = document.getElementById("row-icon");
         const rowTemp = document.getElementById("row-temp");
 
+        // テーブル初期化
         while(rowTime.cells.length > 1) rowTime.deleteCell(1);
         while(rowIcon.cells.length > 1) rowIcon.deleteCell(1);
         while(rowTemp.cells.length > 1) rowTemp.deleteCell(1);
 
-        for(let i=0; i<Math.min(8, codes.length); i++) {
-            const h = new Date(times[i]).getHours() + "時";
-            rowTime.insertCell(-1).textContent = h;
-            rowIcon.insertCell(-1).innerHTML = `<div class="w-icon">${getIcon(codes[i])}</div>`;
-            rowTemp.insertCell(-1).innerHTML = `<div class="w-temp">${temps[i] || "--"}°</div>`;
+        const now = new Date();
+        let count = 0;
+
+        for(let i=0; i < times.length; i++) {
+            const forecastTime = new Date(times[i]);
+            // 「今」より後の予報、または直近の予報のみを表示
+            if (forecastTime >= new Date(now.getTime() - 2 * 60 * 60 * 1000) && count < 8) {
+                const h = forecastTime.getHours() + "時";
+                rowTime.insertCell(-1).textContent = h;
+                rowIcon.insertCell(-1).innerHTML = `<div class="w-icon">${getIcon(codes[i])}</div>`;
+                rowTemp.insertCell(-1).innerHTML = `<div class="w-temp">${temps[i] || "--"}°</div>`;
+                count++;
+            }
         }
     } catch (e) { console.log("Weather Update Error"); }
 }
@@ -153,11 +164,7 @@ function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '0',
         width: '0',
-        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1, 'origin': location.origin },
-        events: {
-            'onReady': () => console.log("YouTube Ready"),
-            'onError': (e) => console.log("YT Error: " + e.data)
-        }
+        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1, 'origin': location.origin }
     });
 }
 
@@ -167,7 +174,6 @@ document.body.addEventListener('click', () => {
         document.getElementById("tapNotice").style.display = "none";
         document.getElementById("status").textContent = "SYSTEM: ONLINE";
         
-        // 音声を有効化するための「儀式」
         player.unMute();
         player.setVolume(100);
         player.loadPlaylist({list: PLAYLIST_ID});
