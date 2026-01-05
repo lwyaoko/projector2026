@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Smart Weather</title>
+<title>Cyber Clock - Shinjuku Meteor Swarm</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -11,30 +11,28 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #background { position: fixed; width: 200%; height: 200%; background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); background-size: 400% 400%; animation: bgMove 30s ease infinite; z-index: -1; opacity: 0.4; }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* 流れ星 */
-.shooting-star { position: absolute; top: -10px; width: 2px; height: 100px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2); opacity: 0; z-index: 0; }
-@keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(100vh) translateX(100vh) rotate(-45deg); opacity: 0; } }
+/* 流れ星：よりシャープに、尾を引くデザイン */
+.shooting-star { position: absolute; top: -10px; width: 2px; height: 150px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2, #fff); opacity: 0; z-index: 0; pointer-events: none; }
+@keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(120vh) translateX(120vh) rotate(-45deg); opacity: 0; } }
 
-/* 時計エリア */
 #clock-container { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
 #clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
-/* 天気エリア */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; max-width: 1000px; text-align: center; z-index: 20; }
-#location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
-
+#location-tag { color: #ff00ff; font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 8px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
 #weather-table { width: 100%; border-collapse: collapse; text-align: center; color: #ccc; font-size: 1.2vw; background: rgba(0, 0, 0, 0.7); border-radius: 8px; overflow: hidden; border: 1px solid #444; }
 #weather-table th, #weather-table td { padding: 8px 5px; border: 1px solid #333; }
 .row-label { background: rgba(255, 0, 255, 0.1); width: 12%; color: #ff00ff; font-weight: bold; }
 .w-icon { font-size: 2vw; margin: 3px 0; }
 .w-temp { color: #fff; font-weight: bold; }
+#high-low { margin-top: 10px; font-size: 1.8vw; color: #fff; text-shadow: 0 0 10px #fff; }
+.temp-max { color: #ff4d4d; margin-right: 15px; }
+.temp-min { color: #4d94ff; }
 
-/* ステータス */
 #status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; text-transform: uppercase; z-index: 100; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-
 #player { display: none; }
 </style>
 </head>
@@ -42,36 +40,25 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 <body>
 <div id="background"></div>
 <div id="status">SYSTEM: STANDBY</div>
-
 <div id="clock-container">
     <div id="date">LOADING...</div>
     <div id="clock">00:00:00</div>
 </div>
-
 <div id="weather-section">
     <div id="location-tag">TOKYO / SHINJUKU</div>
-    <table id="weather-table">
-        <tr id="row-time"><td class="row-label">時刻</td></tr>
-        <tr id="row-icon"><td class="row-label">天気</td></tr>
-        <tr id="row-temp"><td class="row-label">気温</td></tr>
-    </table>
+    <table id="weather-table"><tr id="row-time"><td class="row-label">時刻</td></tr><tr id="row-icon"><td class="row-label">天気</td></tr><tr id="row-temp"><td class="row-label">気温</td></tr></table>
+    <div id="high-low">MAX: <span class="temp-max">--</span> MIN: <span class="temp-min">--</span></div>
 </div>
-
 <div id="tapNotice">SYSTEM START: TAP SCREEN</div>
 <div id="player"></div>
 
 <script>
-/* ===================== 設 定 ===================== */
 const AREA_CODE = "130000"; 
 let MODE = "schedule";
-const SCHEDULE = [
-  { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" }
-];
+const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const PLAY_DURATION = 30;
 const FADE_OUT_TIME = 5;
-/* =============================================== */
 
 let player, activated = false, playedList = [], fadeTimer;
 
@@ -84,50 +71,44 @@ function getIcon(code) {
     return "✨";
 }
 
-// 天気更新（現在時刻に合わせたフィルタリング）
 async function updateWeather() {
     try {
         const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
         const data = await res.json();
-        
         const timeSeries = data[0].timeSeries;
         const codes = timeSeries[0].areas[0].weatherCodes;
         const times = timeSeries[0].timeDefines;
         const temps = timeSeries[2].areas[0].temps;
-
         const rowTime = document.getElementById("row-time");
         const rowIcon = document.getElementById("row-icon");
         const rowTemp = document.getElementById("row-temp");
-
-        // テーブル初期化
         while(rowTime.cells.length > 1) rowTime.deleteCell(1);
         while(rowIcon.cells.length > 1) rowIcon.deleteCell(1);
         while(rowTemp.cells.length > 1) rowTemp.deleteCell(1);
-
         const now = new Date();
-        let count = 0;
-
-        for(let i=0; i < times.length; i++) {
-            const forecastTime = new Date(times[i]);
-            // 「今」より後の予報、または直近の予報のみを表示
-            if (forecastTime >= new Date(now.getTime() - 2 * 60 * 60 * 1000) && count < 8) {
-                const h = forecastTime.getHours() + "時";
-                rowTime.insertCell(-1).textContent = h;
-                rowIcon.insertCell(-1).innerHTML = `<div class="w-icon">${getIcon(codes[i])}</div>`;
-                rowTemp.insertCell(-1).innerHTML = `<div class="w-temp">${temps[i] || "--"}°</div>`;
-                count++;
-            }
+        let startIndex = 0;
+        for(let i=0; i<times.length; i++){ if(new Date(times[i]) > new Date(now.getTime() - 3 * 60 * 60 * 1000)){ startIndex = i; break; } }
+        for(let i=startIndex; i < Math.min(startIndex + 8, codes.length); i++) {
+            const h = new Date(times[i]).getHours() + "時";
+            rowTime.insertCell(-1).textContent = h;
+            rowIcon.insertCell(-1).innerHTML = `<div class="w-icon">${getIcon(codes[i])}</div>`;
+            rowTemp.insertCell(-1).innerHTML = `<div class="w-temp">${temps[i] || "--"}°</div>`;
         }
-    } catch (e) { console.log("Weather Update Error"); }
+        const weekData = data[1].timeSeries[1].areas[0];
+        if (weekData.tempsMax[0]) document.querySelector(".temp-max").textContent = weekData.tempsMax[0] + "°C";
+        if (weekData.tempsMin[0]) document.querySelector(".temp-min").textContent = weekData.tempsMin[0] + "°C";
+    } catch (e) { console.log("Weather error"); }
 }
 
+// 流れ星生成（より速く、スタイリッシュに）
 function createShootingStar() {
     const star = document.createElement('div');
     star.className = 'shooting-star';
-    star.style.left = Math.random() * 80 + 'vw';
-    star.style.animation = "shoot 1.5s ease-in forwards";
+    star.style.left = (Math.random() * 110 - 10) + 'vw'; // 画面外からも流れるように
+    const duration = 0.8 + Math.random() * 0.7; // 0.8s〜1.5sの高速
+    star.style.animation = `shoot ${duration}s ease-in forwards`;
     document.body.appendChild(star);
-    setTimeout(() => star.remove(), 2000);
+    setTimeout(() => star.remove(), duration * 1000 + 500);
 }
 
 setInterval(() => {
@@ -139,7 +120,14 @@ setInterval(() => {
     const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
 
-    if (s === "00") createShootingStar();
+    // 毎分00秒に 6〜10本の流星群
+    if (s === "00") {
+        const swarmCount = Math.floor(Math.random() * 5) + 6; // 6〜10
+        for(let i=0; i<swarmCount; i++) {
+            // 0秒から1.5秒の間にランダムに分散させて発射
+            setTimeout(createShootingStar, Math.random() * 1500);
+        }
+    }
 
     if (activated && MODE === "schedule") {
         const timeKey = `${h}:${m}:${s}`;
@@ -155,17 +143,12 @@ setInterval(() => {
 updateWeather();
 setInterval(updateWeather, 3600000);
 
-/* --- YouTube API --- */
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
-    player = new YT.Player('player', {
-        height: '0',
-        width: '0',
-        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1, 'origin': location.origin }
-    });
+    player = new YT.Player('player', { height: '0', width: '0', playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1 } });
 }
 
 document.body.addEventListener('click', () => {
@@ -173,16 +156,11 @@ document.body.addEventListener('click', () => {
         activated = true;
         document.getElementById("tapNotice").style.display = "none";
         document.getElementById("status").textContent = "SYSTEM: ONLINE";
-        
         player.unMute();
         player.setVolume(100);
         player.loadPlaylist({list: PLAYLIST_ID});
         player.playVideo();
-        
-        setTimeout(() => {
-            player.pauseVideo();
-            updateStatus();
-        }, 1500);
+        setTimeout(() => { player.pauseVideo(); updateStatus(); }, 1200);
     }
 }, {once: true});
 
@@ -193,37 +171,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === "0") { player.pauseVideo(); }
 });
 
-function startPlaylist() {
-    if (!player) return;
-    clearInterval(fadeTimer);
-    player.setVolume(100);
-    player.unMute();
-    player.loadPlaylist({list: PLAYLIST_ID});
-    player.playVideo();
-}
-
-function playVideo(videoId) {
-    if (!player) return;
-    clearInterval(fadeTimer);
-    player.setVolume(100);
-    player.unMute();
-    player.loadVideoById(videoId);
-    setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000);
-}
-
-function startFadeOut() {
-    let vol = 100;
-    fadeTimer = setInterval(() => {
-        vol -= 5;
-        if (vol <= 0) {
-            player.pauseVideo();
-            clearInterval(fadeTimer);
-        } else {
-            player.setVolume(vol);
-        }
-    }, (FADE_OUT_TIME * 1000) / 20);
-}
-
+function startPlaylist() { clearInterval(fadeTimer); player.setVolume(100); player.unMute(); player.loadPlaylist({list: PLAYLIST_ID}); player.playVideo(); }
+function playVideo(videoId) { clearInterval(fadeTimer); player.setVolume(100); player.unMute(); player.loadVideoById(videoId); setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000); }
+function startFadeOut() { let vol = 100; fadeTimer = setInterval(() => { vol -= 5; if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); } else { player.setVolume(vol); } }, (FADE_OUT_TIME * 1000) / 20); }
 function updateStatus() { document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; }
 </script>
 </body>
