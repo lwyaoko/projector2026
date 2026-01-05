@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Final Centered</title>
+<title>Cyber Clock - Shinjuku Reliable Weather</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
@@ -19,28 +19,16 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
 
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 90%; text-align: center; z-index: 20; }
+#location-tag { color: #ff00ff; font-size: 2vw; letter-spacing: 0.5em; margin-bottom: 15px; text-shadow: 0 0 10px #ff00ff; font-weight: bold; display: block; width: 100%; text-align: center; }
 
-/* 地名タグの中央揃え調整 */
-#location-tag { 
-    color: #ff00ff; 
-    font-size: 2vw; 
-    letter-spacing: 0.5em; 
-    margin-bottom: 15px; 
-    text-shadow: 0 0 10px #ff00ff; 
-    font-weight: bold;
-    display: block;
-    width: 100%;
-    text-align: center; /* 中央揃え */
-}
-
-#amedas-box { 
+#weather-box { 
     display: flex; justify-content: center; align-items: center; gap: 50px; 
     background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 15px; border: 1px solid rgba(255, 0, 255, 0.3);
 }
 
 .weather-main-icon { font-size: 6vw; text-shadow: 0 0 20px #ff00ff; color: #fff; width: 8vw; text-align: center; }
-.amedas-details { display: flex; gap: 30px; text-align: left; }
-.amedas-item { display: flex; flex-direction: column; }
+.weather-details { display: flex; gap: 30px; text-align: left; }
+.weather-item { display: flex; flex-direction: column; }
 .label { font-size: 1vw; color: #ff00ff; opacity: 0.8; letter-spacing: 1px; }
 .value { font-size: 3vw; color: #fff; text-shadow: 0 0 10px #ff00ff; font-weight: bold; }
 
@@ -62,15 +50,15 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 <div id="weather-section">
     <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="amedas-box">
+    <div id="weather-box">
         <div id="main-icon" class="weather-main-icon">--</div>
-        <div class="amedas-details">
-            <div class="amedas-item">
+        <div class="weather-details">
+            <div class="weather-item">
                 <div class="label">TEMPERATURE</div>
                 <div id="temp-val" class="value">--°C</div>
             </div>
-            <div class="amedas-item">
-                <div class="label">PRECIPITATION (1h)</div>
+            <div class="weather-item">
+                <div class="label">RAIN / SNOW</div>
                 <div id="prec-val" class="value">--mm</div>
             </div>
         </div>
@@ -81,46 +69,47 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 <div id="player"></div>
 
 <script>
-const STATION_ID = "44132"; 
+/* ===================== 設 定 ===================== */
+// 新宿区の座標 (緯度/経度)
+const LAT = 35.6895; 
+const LON = 139.6917;
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const SCHEDULE = [{ hour: 8, min: 59, sec: 13, video: "HSZBQUcB1Dc" },{ hour: 9, min: 59, sec: 13, video: "HSZBQUcB1Dc" }];
+/* =============================================== */
 
 let player, activated = false, playedList = [], fadeTimer, MODE = "schedule";
 
-function judgeWeatherIcon(prec, temp) {
-    const isNight = new Date().getHours() >= 18 || new Date().getHours() < 6;
-    if (prec > 0) {
-        if (temp < 2) return "❄"; 
-        if (prec >= 5) return "⛈"; 
-        return "☔"; 
-    }
-    return isNight ? "🌙" : "☀"; 
+// WMO天気コードを絵文字に変換
+function getWeatherIcon(code) {
+    if (code === 0) return "☀"; // 快晴
+    if (code <= 3) return "☁"; // 晴れ〜くもり
+    if (code >= 45 && code <= 48) return "🌫"; // 霧
+    if (code >= 51 && code <= 67) return "☔"; // 小雨〜雨
+    if (code >= 71 && code <= 77) return "❄"; // 雪
+    if (code >= 80 && code <= 82) return "☔"; // にわか雨
+    if (code >= 95) return "⛈"; // 雷雨
+    return "✨";
 }
 
-async function updateAMeDAS(retryOffset = 0) {
+async function updateWeather() {
     try {
-        const latestRes = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.json");
-        const latestTimeRaw = await latestRes.json();
-        let d = new Date(latestTimeRaw);
-        
-        if (retryOffset > 0) d = new Date(d.getTime() - retryOffset);
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&timezone=Asia%2FTokyo`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const current = data.current;
 
-        const timeStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}${String(d.getHours()).padStart(2,'0')}${String(Math.floor(d.getMinutes()/10)*10).padStart(2,'0')}00`;
+        document.getElementById("temp-val").textContent = current.temperature_2m.toFixed(1) + "°C";
+        document.getElementById("prec-val").textContent = current.precipitation.toFixed(1) + "mm";
         
-        const dataRes = await fetch(`https://www.jma.go.jp/bosai/amedas/data/map/${timeStr}.json`);
-        if (!dataRes.ok && retryOffset === 0) return updateAMeDAS(600000); 
+        // 夜間は月アイコンにする (18時〜6時)
+        let icon = getWeatherIcon(current.weather_code);
+        const hour = new Date().getHours();
+        if (icon === "☀" && (hour >= 18 || hour < 6)) icon = "🌙";
         
-        const amedasData = await dataRes.json();
-        const shinjuku = amedasData[STATION_ID];
-
-        if (shinjuku) {
-            const temp = shinjuku.temp ? shinjuku.temp[0] : 0;
-            const prec = shinjuku.precipitation1h ? shinjuku.precipitation1h[0] : 0;
-            document.getElementById("temp-val").textContent = temp + "°C";
-            document.getElementById("prec-val").textContent = prec + "mm";
-            document.getElementById("main-icon").textContent = judgeWeatherIcon(prec, temp);
-        }
-    } catch (e) { console.log("Weather fetch error"); }
+        document.getElementById("main-icon").textContent = icon;
+    } catch (e) {
+        console.log("Weather fetch failed");
+    }
 }
 
 function createShootingStar() {
@@ -156,8 +145,8 @@ setInterval(() => {
     }
 }, 1000);
 
-updateAMeDAS();
-setInterval(updateAMeDAS, 600000);
+updateWeather();
+setInterval(updateWeather, 900000); // 15分おきに更新
 
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
