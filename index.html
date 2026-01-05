@@ -44,4 +44,149 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-@keyframes slideIn {
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+#player { display: none; }
+</style>
+</head>
+
+<body>
+<div id="background"></div>
+<div id="status" onclick="handleStatusClick()">SYSTEM: STANDBY</div>
+
+<div id="calendar-container">
+    <div id="calendar-title">UPCOMING SCHEDULE</div>
+    <div id="calendar-list"><div class="event-item" style="font-size:0.8em; opacity:0.5;">AWAITING AUTH...</div></div>
+</div>
+
+<div id="clock-container">
+    <div id="date">0000.00.00 ---</div>
+    <div id="clock">00:00:00</div>
+</div>
+
+<div id="weather-section">
+    <div id="location-tag">TOKYO / SHINJUKU</div>
+    <div id="weather-display-area">
+        <div id="panel-current" class="weather-panel active">
+            <div id="main-icon" class="weather-main-icon">--</div>
+            <div style="display:flex; gap:30px; text-align:left;">
+                <div style="display:flex; flex-direction:column;"><div style="font-size:1vw; color:#ff00ff;">TEMPERATURE</div><div id="temp-val" class="value">--°C</div></div>
+                <div style="display:flex; flex-direction:column;"><div style="font-size:1vw; color:#ff00ff;">PRECIPITATION</div><div id="prec-val" class="value">--mm</div></div>
+            </div>
+        </div>
+        <div id="panel-forecast" class="weather-panel">
+            <div id="forecast-container" class="forecast-list"></div>
+        </div>
+    </div>
+</div>
+
+<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
+<div id="player"></div>
+
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+<script>
+/* ===================== 設定（維持） ===================== */
+const CLIENT_ID = '751679996100-jpv7socqnm0ldlv6b5fp0uavbdq6a24u.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyAlT8AxD8pq3iqIV7By4calMIKLzG_vDe8';
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+const LAT = 35.6895; const LON = 139.6917;
+
+let player, activated = false, playedList = [], MODE = "schedule";
+let tokenClient, gapiInited = false, gisInited = false;
+
+/* --- カレンダー認証 --- */
+function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC], }); gapiInited = true; }); }
+function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '', }); gisInited = true; }
+
+async function listUpcomingEvents() {
+    try {
+        const response = await gapi.client.calendar.events.list({
+            'calendarId': 'primary', 'timeMin': (new Date()).toISOString(),
+            'showDeleted': false, 'singleEvents': true, 'maxResults': 3, 'orderBy': 'startTime',
+        });
+        const events = response.result.items;
+        const list = document.getElementById("calendar-list");
+        list.innerHTML = "";
+        if (!events || events.length === 0) { list.innerHTML = '<div class="event-item">NO EVENTS</div>'; return; }
+        events.forEach(event => {
+            const start = event.start.dateTime || event.start.date;
+            const timeStr = new Date(start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            list.innerHTML += `<div class="event-item"><span class="event-time">${timeStr}</span>${event.summary}</div>`;
+        });
+    } catch (err) { console.log("Calendar error"); }
+}
+
+function handleAuth() {
+    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
+    if (gapi.client.getToken() === null) { tokenClient.requestAccessToken({prompt: 'consent'}); } 
+    else { tokenClient.requestAccessToken({prompt: ''}); }
+}
+
+/* --- 天気アニメーション --- */
+function getWeatherIcon(code, isNight = false) {
+    if (code === 0) return isNight ? "🌙" : "☀";
+    if (code <= 3) return "☁";
+    if (code >= 51 && code <= 67) return "☔";
+    if (code >= 95) return "⛈";
+    return "✨";
+}
+
+async function updateWeather() {
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`;
+        const res = await fetch(url); const data = await res.json();
+        const current = data.current; const hour = new Date().getHours();
+        document.getElementById("temp-val").textContent = current.temperature_2m.toFixed(1) + "°C";
+        document.getElementById("prec-val").textContent = current.precipitation.toFixed(1) + "mm";
+        document.getElementById("main-icon").textContent = getWeatherIcon(current.weather_code, hour >= 18 || hour < 6);
+        const container = document.getElementById("forecast-container"); container.innerHTML = "";
+        for (let i = 3; i <= 12; i += 3) {
+            const timeIdx = hour + i;
+            container.innerHTML += `<div style="text-align:center;"><div style="font-size:1vw; color:#ff00ff;">${(timeIdx % 24)}時</div><div class="f-icon">${getWeatherIcon(data.hourly.weather_code[timeIdx], (timeIdx%24)>=18 || (timeIdx%24)<6)}</div><div style="font-size:1.5vw; color:#fff;">${data.hourly.temperature_2m[timeIdx].toFixed(0)}°</div></div>`;
+        }
+    } catch (e) { console.log("Weather error"); }
+}
+
+function switchPanels() {
+    const p1 = document.getElementById("panel-current"), p2 = document.getElementById("panel-forecast");
+    setInterval(() => { if (p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } else { p2.classList.remove("active"); p1.classList.add("active"); } }, 10000);
+}
+
+/* --- 時計・流星・リモコン --- */
+setInterval(() => {
+    const now = new Date();
+    document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
+    if (now.getSeconds() === 0) { const s = document.createElement('div'); s.className = 'shooting-star'; s.style.left = Math.random() * 90 + 'vw'; s.style.animation = `shoot 1.5s ease-in forwards`; document.body.appendChild(s); setTimeout(() => s.remove(), 2500); }
+}, 1000);
+
+function onYouTubeIframeAPIReady() { player = new YT.Player('player', { height: '0', width: '0', playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1, 'loop': 1 } }); }
+
+function startSystem() {
+    if (activated) return; activated = true;
+    document.getElementById("tapNotice").style.display = "none";
+    player.loadPlaylist({list: PLAYLIST_ID});
+    setTimeout(() => { player.setLoop(true); player.mute(); player.playVideo(); updateStatus(); }, 1500);
+    if (gapiInited && gisInited) handleAuth();
+}
+
+function handleStatusClick() { if (!activated) startSystem(); else toggleMode(); }
+function toggleMode() {
+    MODE = (MODE === "schedule") ? "playlist" : "schedule";
+    if (MODE === "playlist") { player.unMute(); player.setVolume(100); } else { player.mute(); }
+    updateStatus();
+}
+function updateStatus() { document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`; }
+
+document.body.addEventListener('click', (e) => { if (e.target.id !== "status") startSystem(); }, {once: true});
+document.addEventListener('keydown', (e) => { if (activated && (e.key === "ArrowLeft" || e.key === "ArrowRight")) toggleMode(); });
+
+const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
+updateWeather(); setInterval(updateWeather, 900000); switchPanels();
+</script>
+</body>
+</html>
