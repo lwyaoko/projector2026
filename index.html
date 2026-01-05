@@ -2,216 +2,212 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock - Shinjuku Final</title>
+<title>Nixie Cyber Clock - Shinjuku</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-/* スタイルは変更なし（位置とデザインを維持） */
-html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; }
-#background { position: fixed; width: 200%; height: 200%; background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); background-size: 400% 400%; animation: bgMove 30s ease infinite; z-index: -1; opacity: 0.4; }
-@keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.shooting-star { position: absolute; top: -10px; width: 2px; height: 100px; background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2); opacity: 0; z-index: 0; }
-@keyframes shoot { 0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(100vh) translateX(100vh) rotate(-45deg); opacity: 0; } }
-#clock-container { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; width: 100%; }
-#clock { color: #00fff2; font-size: 14vw; letter-spacing: 0.05em; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; line-height: 1; }
-#date { color: rgba(0, 255, 242, 0.7); font-size: 2.5vw; letter-spacing: 0.3em; }
-#weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; }
-#location-tag { color: #ff00ff; font-size: 1.5vw; letter-spacing: 0.5em; margin-bottom: 10px; text-shadow: 0 0 10px #ff00ff; }
-#forecast-container { display: flex; justify-content: center; gap: 15px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 10px; border: 1px solid rgba(255, 0, 255, 0.3); min-height: 50px; }
-.forecast-item { flex: 1; color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
-.f-time { font-size: 1vw; color: rgba(255, 0, 255, 0.7); }
-.f-icon { font-size: 2.5vw; margin: 5px 0; }
-#high-low { margin-top: 10px; font-size: 1.8vw; color: #fff; text-shadow: 0 0 10px #fff; }
-.temp-max { color: #ff4d4d; margin-right: 15px; }
-.temp-min { color: #4d94ff; }
-#status { position: absolute; top: 5%; left: 5%; color: #ff00ff; font-size: 1.2em; border-left: 3px solid #ff00ff; padding-left: 10px; }
-#tapNotice { position: absolute; bottom: 3%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; }
+:root {
+    --nixie-color: #00fff2;
+    --nixie-glow: #00fff2;
+}
+
+html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+    background: #050505;
+}
+
+/* ニキシー管のコンテナ */
+#clock-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60vh;
+    gap: 15px;
+}
+
+/* ガラス管のデザイン */
+.nixie-tube {
+    width: 10vw;
+    height: 18vw;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    border-radius: 50px 50px 10px 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    position: relative;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,242,0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.nixie-tube::after {
+    content: "";
+    position: absolute;
+    top: 5%; left: 15%; width: 20%; height: 80%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    border-radius: 50px;
+}
+
+.digit {
+    font-size: 10vw;
+    color: var(--nixie-color);
+    text-shadow: 0 0 10px var(--nixie-glow), 0 0 20px var(--nixie-glow);
+    z-index: 2;
+}
+
+/* 天気セクション（Yahoo天気風レイアウト） */
+#weather-section {
+    position: absolute; bottom: 5%; left: 50%;
+    transform: translateX(-50%);
+    width: 95%; max-width: 900px;
+    background: rgba(20, 20, 20, 0.8);
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#weather-table {
+    width: 100%; border-collapse: collapse; text-align: center;
+    color: #ccc; font-size: 1.2vw;
+}
+
+#weather-table th, #weather-table td {
+    padding: 10px 5px; border: 1px solid #333;
+}
+
+.row-label { background: #1a1a1a; width: 15%; color: #888; }
+.w-icon { font-size: 2vw; margin: 5px 0; }
+.w-temp { color: #fff; font-weight: bold; }
+
+#location-info {
+    position: absolute; top: 5%; right: 5%;
+    color: #ff00ff; border-left: 3px solid #ff00ff; padding-left: 10px;
+}
+
+#tapNotice {
+    position: absolute; bottom: 2%; width: 100%; text-align: center;
+    color: #444; font-size: 1em; animation: blink 2s infinite;
+}
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
 #player { display: none; }
 </style>
 </head>
 
 <body>
-<div id="background"></div>
-<div id="status">SYSTEM: STANDBY</div>
-<div id="clock-container">
-    <div id="date">LOADING DATE...</div>
-    <div id="clock">00:00:00</div>
+<div id="location-info">SYSTEM ONLINE: TOKYO / SHINJUKU</div>
+
+<div id="clock-display">
+    <div class="nixie-tube"><div class="digit" id="h1">0</div></div>
+    <div class="nixie-tube"><div class="digit" id="h2">0</div></div>
+    <div style="font-size:5vw; color:#333;">:</div>
+    <div class="nixie-tube"><div class="digit" id="m1">0</div></div>
+    <div class="nixie-tube"><div class="digit" id="m2">0</div></div>
+    <div style="font-size:5vw; color:#333;">:</div>
+    <div class="nixie-tube"><div class="digit" id="s1">0</div></div>
+    <div class="nixie-tube"><div class="digit" id="s2">0</div></div>
 </div>
+
 <div id="weather-section">
-    <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="forecast-container">WEATHER LOADING...</div>
-    <div id="high-low">MAX: <span class="temp-max">--</span> MIN: <span class="temp-min">--</span></div>
+    <table id="weather-table">
+        <tr id="row-time"><td class="row-label">時刻</td></tr>
+        <tr id="row-icon"><td class="row-label">天気</td></tr>
+        <tr id="row-temp"><td class="row-label">気温(℃)</td></tr>
+    </table>
 </div>
-<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
+
+<div id="tapNotice">TAP TO ACTIVATE AUDIO</div>
 <div id="player"></div>
 
 <script>
-/* ===================== 設 定 ===================== */
 const AREA_CODE = "130000"; 
-let MODE = "schedule";
-const SCHEDULE = [
-  { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
-  { hour: 9,  min: 59, sec: 13, video: "HSZBQUcB1Dc" }
-];
+let activated = false;
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
-const PLAY_DURATION = 30;
-const FADE_OUT_TIME = 5;
-/* =============================================== */
-
-let player, activated = false, playedList = [], fadeTimer;
 
 // アイコン変換
 function getIcon(code) {
-    const c = String(code);
-    if (c.startsWith("1")) return "☀";
-    if (c.startsWith("2")) return "☁";
-    if (c.startsWith("3")) return "☔";
-    if (c.startsWith("4")) return "❄";
+    if (code.startsWith("1")) return "☀";
+    if (code.startsWith("2")) return "☁";
+    if (code.startsWith("3")) return "☔";
     return "✨";
 }
 
-// 天気更新 (非同期エラーの影響を最小限に)
+// Yahoo天気風テーブル更新
 async function updateWeather() {
     try {
         const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
-        if (!res.ok) throw new Error("Network error");
         const data = await res.json();
         
-        // 時間別予報
-        const timeSeries = data[0].timeSeries[0];
-        const codes = timeSeries.areas[0].weatherCodes;
-        const times = timeSeries.timeDefines;
-        const container = document.getElementById("forecast-container");
-        
-        let html = "";
-        for(let i=0; i<Math.min(6, codes.length); i++) {
-            const hour = new Date(times[i]).getHours() + ":00";
-            html += `<div class="forecast-item"><div class="f-time">${hour}</div><div class="f-icon">${getIcon(codes[i])}</div></div>`;
+        const timeSeries = data[0].timeSeries;
+        const weatherCodes = timeSeries[0].areas[0].weatherCodes;
+        const times = timeSeries[0].timeDefines;
+        // 気温データ（今日）
+        const temps = timeSeries[2].areas[0].temps;
+
+        const rowTime = document.getElementById("row-time");
+        const rowIcon = document.getElementById("row-icon");
+        const rowTemp = document.getElementById("row-temp");
+
+        // 既存データをクリア（ラベル以外）
+        while(rowTime.cells.length > 1) rowTime.deleteCell(1);
+        while(rowIcon.cells.length > 1) rowIcon.deleteCell(1);
+        while(rowTemp.cells.length > 1) rowTemp.deleteCell(1);
+
+        for(let i=0; i<Math.min(8, weatherCodes.length); i++) {
+            const h = new Date(times[i]).getHours() + "時";
+            rowTime.insertCell(-1).textContent = h;
+            rowIcon.insertCell(-1).innerHTML = `<div class="w-icon">${getIcon(weatherCodes[i])}</div>`;
+            rowTemp.insertCell(-1).innerHTML = `<div class="w-temp">${temps[i] || "--"}</div>`;
         }
-        container.innerHTML = html;
-
-        // 気温 (データ構造の変化に対応)
-        try {
-            const weekData = data[1].timeSeries[1].areas[0];
-            if (weekData.tempsMax && weekData.tempsMax[0]) document.querySelector(".temp-max").textContent = weekData.tempsMax[0] + "°C";
-            if (weekData.tempsMin && weekData.tempsMin[0]) document.querySelector(".temp-min").textContent = weekData.tempsMin[0] + "°C";
-        } catch(e) { console.log("Temp data incomplete"); }
-
-    } catch (e) { 
-        console.log("Weather fetch failed, will retry later.");
-        document.getElementById("forecast-container").textContent = "OFFLINE / RETRYING...";
-    }
+    } catch (e) { console.log(e); }
 }
 
-// 流れ星
-function createShootingStar() {
-    const star = document.createElement('div');
-    star.className = 'shooting-star';
-    star.style.left = Math.random() * 80 + 'vw';
-    star.style.animation = "shoot 1.5s ease-in forwards";
-    document.body.appendChild(star);
-    setTimeout(() => star.remove(), 2000);
+// ニキシー管時計の更新
+function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+
+    document.getElementById("h1").textContent = h[0];
+    document.getElementById("h2").textContent = h[1];
+    document.getElementById("m1").textContent = m[0];
+    document.getElementById("m2").textContent = m[1];
+    document.getElementById("s1").textContent = s[0];
+    document.getElementById("s2").textContent = s[1];
 }
 
-// 時計のメインループ (最優先で開始)
-function startClock() {
-    setInterval(() => {
-        const now = new Date();
-        const h = String(now.getHours()).padStart(2,'0');
-        const m = String(now.getMinutes()).padStart(2,'0');
-        const s = String(now.getSeconds()).padStart(2,'0');
-        document.getElementById("clock").textContent = `${h}:${m}:${s}`;
-
-        const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-        document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${days[now.getDay()]}`;
-
-        if (s === "00") createShootingStar();
-
-        if (activated && MODE === "schedule") {
-            const timeKey = `${h}:${m}:${s}`;
-            SCHEDULE.forEach((item, index) => {
-                if (now.getHours() === item.hour && now.getMinutes() === item.min && now.getSeconds() === item.sec && !playedList.includes(timeKey + index)) {
-                    playVideo(item.video);
-                    playedList.push(timeKey + index);
-                }
-            });
-        }
-    }, 1000);
-}
-
-// 初期実行
-startClock();
+setInterval(updateClock, 1000);
 updateWeather();
-setInterval(updateWeather, 3600000); // 1時間おきに天気更新
+setInterval(updateWeather, 3600000);
 
-// --- YouTube API 制御 ---
+// YouTube API
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
 
+let player;
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '0', width: '0',
-        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1 },
-        events: { 'onReady': () => console.log("YT Player Ready") }
+        playerVars: { 'autoplay': 0, 'controls': 0, 'enablejsapi': 1 }
     });
 }
 
 document.body.addEventListener('click', () => {
-    if (!activated && player && typeof player.loadPlaylist === 'function') {
+    if (!activated && player) {
         activated = true;
         document.getElementById("tapNotice").style.display = "none";
-        document.getElementById("status").textContent = "SYSTEM: ONLINE";
-        
         player.unMute();
         player.setVolume(100);
         player.loadPlaylist({list: PLAYLIST_ID});
         player.playVideo();
-        
-        setTimeout(() => {
-            player.pauseVideo();
-            updateStatus();
-        }, 1200);
+        setTimeout(() => player.pauseVideo(), 1500);
     }
 }, {once: true});
-
-document.addEventListener('keydown', (e) => {
-    if (!activated || !player) return;
-    if (e.key === "1") { MODE = "schedule"; player.pauseVideo(); updateStatus(); }
-    if (e.key === "2") { MODE = "playlist"; startPlaylist(); updateStatus(); }
-    if (e.key === "0") { player.pauseVideo(); }
-});
-
-function startPlaylist() {
-    clearInterval(fadeTimer);
-    player.setVolume(100);
-    player.unMute();
-    player.loadPlaylist({list: PLAYLIST_ID});
-    player.playVideo();
-}
-
-function playVideo(videoId) {
-    clearInterval(fadeTimer);
-    player.setVolume(100);
-    player.unMute();
-    player.loadVideoById(videoId);
-    setTimeout(startFadeOut, (PLAY_DURATION - FADE_OUT_TIME) * 1000);
-}
-
-function startFadeOut() {
-    let vol = 100;
-    fadeTimer = setInterval(() => {
-        vol -= 5;
-        if (vol <= 0) { player.pauseVideo(); clearInterval(fadeTimer); }
-        else { player.setVolume(vol); }
-    }, (FADE_OUT_TIME * 1000) / 20);
-}
-
-function updateStatus() {
-    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase()}`;
-}
 </script>
 </body>
 </html>
