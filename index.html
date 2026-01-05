@@ -2,9 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Cyber Clock + Weather</title>
+<title>Cyber Clock - Shinjuku</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
@@ -33,12 +32,9 @@ html, body {
 
 .shooting-star {
     position: absolute;
-    top: -10px;
-    width: 2px;
-    height: 100px;
+    top: -10px; width: 2px; height: 100px;
     background: linear-gradient(to bottom, rgba(255,255,255,0), #00fff2);
-    opacity: 0;
-    z-index: 0;
+    opacity: 0; z-index: 0;
 }
 @keyframes shoot {
     0% { transform: translateY(0) translateX(0) rotate(-45deg); opacity: 0; }
@@ -52,8 +48,7 @@ html, body {
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
-    z-index: 10;
-    width: 100%;
+    z-index: 10; width: 100%;
 }
 
 #clock {
@@ -72,22 +67,18 @@ html, body {
     margin-bottom: 20px;
 }
 
-/* --- 天気セクションのスタイル --- */
 #weather-box {
     color: #ff00ff;
-    font-size: 2.5vw;
+    font-size: 2.2vw;
     text-shadow: 0 0 10px #ff00ff;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 20px;
-    margin-top: 10px;
-    opacity: 0.8;
+    gap: 15px;
+    margin-top: 15px;
 }
 
-.weather-icon {
-    font-size: 3.5vw;
-}
+.weather-icon { font-size: 3.5vw; }
 
 #status {
     position: absolute;
@@ -101,10 +92,8 @@ html, body {
 
 #tapNotice {
     position: absolute;
-    bottom: 8%;
-    width: 100%;
-    text-align: center;
-    color: white;
+    bottom: 8%; width: 100%;
+    text-align: center; color: white;
     font-size: 1.5em;
     animation: blink 1.5s infinite;
 }
@@ -122,9 +111,9 @@ html, body {
     <div id="date">2026.01.05 MON</div>
     <div id="clock">00:00:00</div>
     <div id="weather-box">
-        <span class="weather-icon">☀</span>
-        <span id="temp">24°C</span>
-        <span id="condition">CLEAR</span>
+        <span class="weather-icon">--</span>
+        <span id="temp">--°C</span>
+        <span id="condition">SHINJUKU LOADING...</span>
     </div>
 </div>
 <div id="tapNotice">SYSTEM START: TAP SCREEN</div>
@@ -132,6 +121,7 @@ html, body {
 
 <script>
 /* ===================== 設 定 ===================== */
+const AREA_CODE = "130000"; // 東京都（新宿区含む）
 let MODE = "schedule";
 const SCHEDULE = [
   { hour: 8,  min: 59, sec: 13, video: "HSZBQUcB1Dc" },
@@ -140,12 +130,37 @@ const SCHEDULE = [
 const PLAY_DURATION = 30;
 const FADE_OUT_TIME = 5;
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
-
-// 表示したい天気をここに入力（後で自動取得に改造も可能）
-const WEATHER_DATA = { temp: "12°C", icon: "☁", desc: "CLOUDY" };
 /* =============================================== */
 
 let player, activated = false, playedList = [], fadeTimer;
+
+// --- 気象庁API連携 (Qiitaの手法をJS版に移植) ---
+async function updateWeather() {
+    try {
+        const response = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${AREA_CODE}.json`);
+        const data = await response.json();
+
+        const areaData = data[0].timeSeries[0].areas[0];
+        const weatherName = areaData.weathers[0]; // 例: "晴れ"
+        const weatherCode = areaData.weatherCodes[0];
+
+        // アイコン判定
+        let icon = "✨";
+        if (weatherName.includes("晴")) icon = "☀";
+        else if (weatherName.includes("雨")) icon = "☔";
+        else if (weatherName.includes("雪")) icon = "❄";
+        else if (weatherName.includes("くもり") || weatherName.includes("曇")) icon = "☁";
+
+        document.querySelector(".weather-icon").textContent = icon;
+        document.getElementById("condition").textContent = weatherName.replace(/\s+/g, "");
+        
+        // 気温取得
+        if (data[0].timeSeries[2]) {
+            const temp = data[0].timeSeries[2].areas[0].temps[0];
+            document.getElementById("temp").textContent = `${temp}°C`;
+        }
+    } catch (e) { console.error("Weather Error", e); }
+}
 
 function createShootingStar() {
     const star = document.createElement('div');
@@ -182,12 +197,11 @@ setInterval(() => {
     }
 }, 1000);
 
-// 天気情報を画面に反映
-document.querySelector(".weather-icon").textContent = WEATHER_DATA.icon;
-document.getElementById("temp").textContent = WEATHER_DATA.temp;
-document.getElementById("condition").textContent = WEATHER_DATA.desc;
+// 初回と1時間おきに天気更新
+updateWeather();
+setInterval(updateWeather, 3600000);
 
-/* --- YouTube API --- */
+/* --- YouTube API 制御 --- */
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
@@ -250,4 +264,3 @@ function updateStatus() {
 
 </body>
 </html>
-
