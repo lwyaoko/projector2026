@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Perfect Edition</title>
+<title>Cyber & World Clock - Non-Stop Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11,46 +11,62 @@
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-/* --- 全体レイアウト（既存維持） --- */
+/* --- 全体レイアウト --- */
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
-/* 背景モード定義（既存維持） */
-body.mode-standby, body.mode-playlist, body.mode-pixar, body.mode-chill_pop { background: #000; }
+/* 背景モード定義 */
+body.mode-standby, body.mode-playlist, body.mode-pixar, body.mode-chill_pop, body.mode-news { background: #000; }
 body.mode-standby #background, body.mode-playlist #background, body.mode-pixar #background, body.mode-chill_pop #background { 
     background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
     background-size: 400% 400%; animation: bgMove 30s ease infinite; opacity: 0.4; 
 }
 body.mode-schedule { background: #fdf5e6; }
-body.mode-schedule #background { background: linear-gradient(135deg, #ffcce0 0%, #ccf2ff 50%, #e0ccff 100%); opacity: 1; animation: bgMove 20s ease infinite; }
+body.mode-schedule #background { 
+    background: linear-gradient(135deg, #ffcce0 0%, #ccf2ff 50%, #e0ccff 100%);
+    opacity: 1; animation: bgMove 20s ease infinite;
+}
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- ニュースモード（追加分：既存を邪魔しない） --- */
+/* --- ニュースモード専用レイアウト (トレインビジョン風) --- */
 #news-screen { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     display: none; grid-template-columns: 60% 40%; grid-template-rows: 1fr 120px;
-    background: #001a33; color: white; z-index: 280; 
+    background: #00254d; color: white; z-index: 280; 
 }
 body.mode-news #news-screen { display: grid; }
-#news-image-area { background: #000; position: relative; overflow: hidden; border-right: 2px solid #333; }
+#news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
 #news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s; }
-#news-headline-area { padding: 40px; background: #002b55; display: flex; flex-direction: column; justify-content: center; }
-#news-title { font-size: 3.2vw; font-weight: bold; line-height: 1.5; color: #fff; }
-#news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; }
-#news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; }
+#news-headline-area { padding: 40px; background: linear-gradient(135deg, #003366, #001529); display: flex; flex-direction: column; justify-content: center; }
+#news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+#news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-250%); } }
 
-/* ニュース中の時刻（右上） */
+/* ニュース中のミニ時計 */
 #mini-clock { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; border-left: 5px solid #00fff2; z-index: 290; display: none; }
 body.mode-news #mini-clock { display: block; }
 body.mode-news #clock-container, body.mode-news #weather-section, body.mode-news #calendar-container { display: none; }
+body.mode-news #status { background: #0056b3; color: #fff; border: none; box-shadow: none; }
 
-/* --- サイバー流れ星（既存維持） --- */
+/* --- サイバー流れ星 --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-.cyber-star { position: absolute; width: 150px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,255,242,0.8) 50%, rgba(255,255,255,0) 100%); filter: drop-shadow(0 0 5px #00fff2); opacity: 0; }
-@keyframes cyber-shoot { 0% { transform: translate(0, 0) rotate(var(--angle)); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; } }
+.cyber-star {
+    position: absolute;
+    width: 150px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,255,242,0.8) 50%, rgba(255,255,255,0) 100%);
+    filter: drop-shadow(0 0 5px #00fff2);
+    opacity: 0;
+}
+@keyframes cyber-shoot {
+    0% { transform: translate(0, 0) rotate(var(--angle)); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
+}
 
-/* --- 中央時計（既存維持） --- */
+/* --- 中央：時計 (最前面 z-index: 250) --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -59,18 +75,63 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- UI要素（既存維持） --- */
-#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 300; cursor: pointer; text-transform: uppercase; }
-body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
-body.mode-news #status { color: #fff; background: #0056b3; }
+/* --- からくり時計演出 (z-index: 200) --- */
+#karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
+.door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
+.door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
+.door-right { right: 0; transform: translateX(100%); border-left: 4px solid #fff; }
+#karakuri-overlay.active .door-left { transform: translateX(0); }
+#karakuri-overlay.active .door-right { transform: translateX(0); }
+#karakuri-overlay.open .door-left { transform: translateX(-100%); }
+#karakuri-overlay.open .door-right { transform: translateX(100%); }
+.stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s; }
+#karakuri-overlay.open .stage { opacity: 1; }
+.char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
+#karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
+#karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
+#karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
+#karakuri-overlay.open .sun-bright { animation: pulse 3s ease-in-out infinite; }
+@keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+@keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+/* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; }
-#calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; color: #00fff2; }
-#weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; color: #ff00ff; }
-.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; width: 80%; left: 10%; opacity: 0; transition: all 0.8s ease; }
-.weather-panel.active { opacity: 1; }
-#tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; animation: blink 1.5s infinite; z-index: 100; }
+#calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; }
+body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
+body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode-pixar #calendar-title, body.mode-chill_pop #calendar-title { color: #00fff2; }
+#calendar-list { position: relative; height: 80px; }
+.event-item { position: absolute; top: 0; right: 0; width: 100%; font-size: 1.5em; white-space: nowrap; opacity: 0; transform: translateY(10px); transition: all 0.8s ease; border-right: 4px solid; padding-right: 15px; box-sizing: border-box; }
+.event-item.active { opacity: 1; transform: translateY(0); }
+body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
+body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
+.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
+body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
+body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
+
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 300; cursor: pointer; text-transform: uppercase; }
+body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
+body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
+
+#weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; }
+#location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
+body.mode-schedule #location-tag { color: #db7093; }
+body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pixar #location-tag, body.mode-chill_pop #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+
+.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 80%; left: 10%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; padding: 10px; }
+.weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.85); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
+body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel, body.mode-chill_pop .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
+
+#forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
+.forecast-item { text-align: center; }
+.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; } 
+.forecast-icon { font-size: 3.5vw; margin: 5px 0; }
+.forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
+
+#player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+#tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-#player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; }
 </style>
 </head>
 
@@ -80,9 +141,20 @@ body.mode-news #status { color: #fff; background: #0056b3; }
 
 <div id="news-screen">
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
-    <div id="news-headline-area"><div id="news-title">Loading...</div></div>
-    <div id="news-ticker-area"><div id="news-ticker">ニュースを読み込んでいます...</div></div>
+    <div id="news-headline-area"><div id="news-title">Loading News...</div></div>
+    <div id="news-ticker-area"><div id="news-ticker">主要ニュースを読み込んでいます...</div></div>
     <div id="mini-clock">00:00:00</div>
+</div>
+
+<div id="karakuri-overlay">
+    <div class="door door-left">✨</div>
+    <div class="door door-right">✨</div>
+    <div class="stage">
+        <div class="char sun-bright" style="top:12%; left:18%;">☀️</div>
+        <div class="char moon-face" style="top:20%; left:45%;">🌙</div>
+        <div class="char bear" style="bottom:10%; left:20%;">🧸</div>
+        <div class="char bear-right" style="bottom:15%; right:20%;">🧸</div>
+    </div>
 </div>
 
 <div id="status" onclick="handleStatusClick()">SYSTEM: START</div>
@@ -98,12 +170,14 @@ body.mode-news #status { color: #fff; background: #0056b3; }
 
 <div id="weather-section">
     <div id="location-tag">TOKYO / SHINJUKU</div>
-    <div id="panel-current" class="weather-panel active">
-        <div id="main-icon" style="font-size:7vw; margin-right:40px;">--</div>
-        <div style="font-size:3.5vw; font-weight:900;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
-    </div>
-    <div id="panel-forecast" class="weather-panel">
-        <div id="forecast-container" style="display:flex; width:100%; justify-content:space-around;"></div>
+    <div id="weather-display-area">
+        <div id="panel-current" class="weather-panel active">
+            <div id="main-icon" style="font-size:7vw; margin-right:40px;">--</div>
+            <div style="font-size:3.5vw; font-weight:900;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
+        </div>
+        <div id="panel-forecast" class="weather-panel">
+            <div id="forecast-container"></div>
+        </div>
     </div>
 </div>
 
@@ -117,29 +191,113 @@ body.mode-news #status { color: #fff; background: #0056b3; }
 const CLIENT_ID = '751679996100-jpv7socqnm0ldlv6b5fp0uavbdq6a24u.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAlT8AxD8pq3iqIV7By4calMIKLzG_vDe8';
 const BASE_VIDEO_ID = "LDmImf4WIk4"; 
+const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+const PIXAR_VIDEO_ID = "ecAR5gVCRmE";
+const CHILL_POP_VIDEO_ID = "iaXE8pyRBM4";
+const PIXAR_TIMESTAMPS = [0, 296, 512, 775, 1136, 1413, 1654, 1907, 2280, 2573];
 const LAT = 35.6895; const LON = 139.6917;
 
-let MODE = "standby", activated = false, player, currentNews = [], newsIndex = 0;
+let MODE = "standby", activated = false, player;
+let tokenClient, gapiInited = false, gisInited = false;
+let currentEventIndex = 0;
+let wakeLock = null;
+let currentNews = [], newsIndex = 0; // 追加
 
-function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); }); }
-function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); }
+function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
+function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
+
+async function requestWakeLock() {
+    try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {}
+}
+
+function shootMinuteStars() {
+    if (MODE === "schedule" || MODE === "news") return;
+    const container = document.getElementById('stars-container');
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const star = document.createElement('div');
+            star.className = 'cyber-star';
+            const startX = Math.random() * (window.innerWidth * 0.8) + (window.innerWidth * 0.2);
+            const startY = Math.random() * (window.innerHeight * 0.4);
+            const angle = 160; const moveDist = 800;
+            star.style.left = startX + 'px'; star.style.top = startY + 'px';
+            star.style.setProperty('--angle', angle + 'deg');
+            star.style.setProperty('--moveX', -moveDist + 'px');
+            star.style.setProperty('--moveY', moveDist + 'px');
+            star.style.animation = 'cyber-shoot 1.8s cubic-bezier(0.1, 0.5, 0.3, 1) forwards';
+            container.appendChild(star);
+            setTimeout(() => star.remove(), 2000);
+        }, i * 350);
+    }
+}
+
+async function listUpcomingEvents() {
+    try {
+        const response = await gapi.client.calendar.events.list({ 'calendarId': 'primary', 'timeMin': (new Date()).toISOString(), 'showDeleted': false, 'singleEvents': true, 'maxResults': 5, 'orderBy': 'startTime' });
+        const list = document.getElementById("calendar-list");
+        const events = response.result.items;
+        if (!events || events.length === 0) { list.innerHTML = '<div class="event-item active">NO EVENTS</div>'; return; }
+        const today = new Date();
+        list.innerHTML = events.map((event, i) => {
+            const start = new Date(event.start.dateTime || event.start.date);
+            const end = new Date(event.end.dateTime || event.end.date);
+            const dateStr = start.toDateString() === today.toDateString() ? "今日" : `${start.getMonth()+1}/${start.getDate()}`;
+            let timeStr = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}` : "終日";
+            return `<div class="event-item ${i===0?'active':''}">
+                        <span class="event-date-tag">${dateStr}</span>
+                        <span style="font-weight:bold;margin-right:8px;">${timeStr}</span>${event.summary}
+                    </div>`;
+        }).join('');
+        currentEventIndex = 0;
+    } catch (e) {}
+}
+
+function playBaseVideoSynced() {
+    const now = new Date();
+    const mins = now.getMinutes(); const secs = now.getSeconds();
+    let offset = (mins === 0) ? secs : (((mins % 15) * 60) + secs);
+    player.loadVideoById({ videoId: BASE_VIDEO_ID, startSeconds: offset });
+    if(MODE === "standby") player.mute(); else player.unMute();
+    player.playVideo();
+}
+
+function playChillPopSynced() {
+    const now = new Date();
+    player.loadVideoById({ videoId: CHILL_POP_VIDEO_ID, startSeconds: (now.getMinutes() * 60) + now.getSeconds() });
+    player.unMute(); player.playVideo();
+}
+
+function playPixarRandom() {
+    const start = PIXAR_TIMESTAMPS[Math.floor(Math.random() * PIXAR_TIMESTAMPS.length)];
+    player.loadVideoById({ videoId: PIXAR_VIDEO_ID, startSeconds: start });
+    player.unMute(); player.playVideo();
+}
 
 function updateClock() {
     const now = new Date();
+    const mins = now.getMinutes();
+    const secs = now.getSeconds();
     const timeStr = now.toTimeString().split(' ')[0];
+    
     document.getElementById("clock").textContent = timeStr;
-    document.getElementById("mini-clock").textContent = timeStr;
+    document.getElementById("mini-clock").textContent = timeStr; // ミニ時計更新
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
-    if (now.getSeconds() === 0) shootMinuteStars();
+    
+    if (secs === 0) { shootMinuteStars(); }
+    if (activated && MODE === "schedule") {
+        if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) triggerPreAction();
+        if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) openKarakuri();
+    }
 }
 setInterval(updateClock, 1000);
 
+// --- ニュース機能用ロジック ---
 async function fetchNews() {
     try {
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/headlines/section/topic/NATION?hl=ja&gl=JP&ceid=JP:ja`);
         const data = await res.json();
         if (data.items) { currentNews = data.items; rotateNews(); }
-    } catch (e) {}
+    } catch (e) { console.error("News error"); }
 }
 
 function rotateNews() {
@@ -155,6 +313,69 @@ function rotateNews() {
 }
 setInterval(rotateNews, 15000);
 
+function triggerPreAction() {
+    const overlay = document.getElementById('karakuri-overlay');
+    overlay.style.display = 'block'; overlay.classList.remove('open');
+    setTimeout(() => overlay.classList.add('active'), 100); 
+    player.loadVideoById("HSZBQUcB1Dc"); player.unMute(); player.playVideo();
+}
+function openKarakuri() { document.getElementById('karakuri-overlay').classList.add('open'); }
+function resetKarakuri() {
+    const overlay = document.getElementById('karakuri-overlay');
+    overlay.classList.remove('open', 'active');
+    setTimeout(() => { overlay.style.display = 'none'; }, 500);
+}
+function stopKarakuri() {
+    const overlay = document.getElementById('karakuri-overlay');
+    overlay.classList.remove('open');
+    setTimeout(() => { overlay.classList.remove('active'); setTimeout(() => overlay.style.display = 'none', 1500); }, 2000);
+}
+
+function onYouTubeIframeAPIReady() { 
+    player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1, 'origin': location.origin },
+        events: { 'onStateChange': (e) => { 
+            if (e.data === YT.PlayerState.ENDED) {
+                if (MODE === "schedule") { stopKarakuri(); playBaseVideoSynced(); }
+                else if (MODE === "pixar") playPixarRandom();
+                else if (MODE === "chill_pop") playChillPopSynced();
+            } 
+        } }
+    }); 
+}
+
+function startSystem() {
+    if (activated) return; activated = true;
+    document.getElementById("tapNotice").style.display = "none";
+    requestWakeLock();
+    playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
+    if (gapiInited && gisInited) handleAuth();
+}
+
+function toggleMode(direction) {
+    // モードに "news" を追加
+    const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop", "news"];
+    MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
+    resetKarakuri();
+    if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
+    else if (MODE === "pixar") playPixarRandom();
+    else if (MODE === "chill_pop") playChillPopSynced();
+    else if (MODE === "news") { fetchNews(); playBaseVideoSynced(); }
+    else playBaseVideoSynced();
+    updateStatus(); listUpcomingEvents();
+}
+
+function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
+function updateStatus() { 
+    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase().replace('_',' ')}`; 
+    document.body.className = "mode-" + MODE;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!activated) { startSystem(); return; }
+    if (e.key === "ArrowRight") toggleMode(1);
+    if (e.key === "ArrowLeft") toggleMode(-1);
+});
+
 async function updateWeather() {
     try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`);
@@ -166,47 +387,44 @@ async function updateWeather() {
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
             const h = (hour + i) % 24;
-            return `<div style="text-align:center;"><div>${h}時</div><div style="font-size:3vw;">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div><div>${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
+            return `<div class="forecast-item">
+                        <div class="forecast-time">${h}時</div>
+                        <div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div>
+                        <div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
+                    </div>`;
         }).join('');
     } catch (e) {}
 }
-setInterval(updateWeather, 900000); updateWeather();
 
-function toggleMode(direction) {
-    const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop", "news"];
-    MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
-    document.body.className = "mode-" + MODE;
-    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase().replace('_',' ')}`;
-    if (MODE === "news") fetchNews();
-    else if (player) player.loadVideoById(BASE_VIDEO_ID);
+function handleAuth() {
+    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
+    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
 }
 
-function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
-function startSystem() { 
-    activated = true; document.getElementById("tapNotice").style.display = "none";
-    if (player) player.loadVideoById(BASE_VIDEO_ID);
-}
-
-function onYouTubeIframeAPIReady() { player = new YT.Player('player', { height: '1', width: '1' }); }
-function shootMinuteStars() {
-    if (MODE === "news") return;
-    const container = document.getElementById('stars-container');
-    const star = document.createElement('div');
-    star.className = 'cyber-star';
-    star.style.left = '80%'; star.style.top = '10%';
-    star.style.setProperty('--angle', '160deg'); star.style.setProperty('--moveX', '-800px'); star.style.setProperty('--moveY', '800px');
-    star.style.animation = 'cyber-shoot 1.8s forwards';
-    container.appendChild(star);
-    setTimeout(() => star.remove(), 2000);
-}
-
+document.body.addEventListener('click', () => { if(!activated) startSystem(); });
 const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
+updateWeather(); setInterval(updateWeather, 900000);
+
 setInterval(() => {
     const p1 = document.getElementById("panel-current"); const p2 = document.getElementById("panel-forecast");
     if(p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } 
     else { p2.classList.remove("active"); p1.classList.add("active"); }
 }, 10000);
-document.body.addEventListener('click', () => { if(!activated) startSystem(); });
+
+setInterval(() => {
+    const items = document.querySelectorAll('.event-item');
+    if (items.length <= 1) return;
+    items[currentEventIndex].classList.remove('active');
+    currentEventIndex = (currentEventIndex + 1) % items.length;
+    items[currentEventIndex].classList.add('active');
+}, 5000);
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        updateClock();
+        requestWakeLock();
+    }
+});
 </script>
 </body>
 </html>
