@@ -327,15 +327,22 @@ function rotateNews() {
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像取得ロジックの改善: ニュース、建物、ITなどのキーワードでランダム性を高める
-    // 固有名詞が抜き出せない場合のデフォルトタグを具体化
-    const searchTag = cleanTitle.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, ' ').split(' ').filter(w => w.length > 1)[0] || "tokyo,city";
+    // 画像取得ロジックの改善 (猫を回避してニュースらしい画像を出す)
+    // タイトルから漢字のみを抜き出して検索ワードにする
+    const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["city"];
+    const searchTag = kanjiWords.slice(0, 2).join(','); // 最初の2つの単語を組み合わせる
+
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
+    
+    // 配信元を Unsplash 公式のパラメータ付きURLに変更 (猫を回避)
+    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},news,building&sig=${newsIndex}`;
+
     setTimeout(() => { 
-        // ニュースにふさわしい建物の風景やテクノロジー画像を優先
-        imgEl.src = `https://loremflickr.com/1280/720/${encodeURIComponent(searchTag)},building,news/all?lock=${Math.floor(Date.now()/10000)}`; 
+        imgEl.src = newImgUrl; 
         imgEl.style.opacity = 1; 
+        // エラー時のための代替画像
+        imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
     newsIndex = (newsIndex + 1) % currentNews.length;
@@ -385,10 +392,8 @@ function toggleMode(direction) {
     MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
     resetKarakuri();
     
-    // モード切替時のミュート制御
-    if (MODE === "news") { player.mute(); }
-    else if (MODE === "standby") { player.mute(); }
-    else { player.unMute(); }
+    // ニュースモード時は無音
+    if (MODE === "news" || MODE === "standby") player.mute(); else player.unMute();
 
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
     else if (MODE === "pixar") playPixarRandom();
