@@ -47,7 +47,7 @@ body.mode-schedule #background {
     100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
 }
 
-/* --- 中央：時計 --- */
+/* --- 中央：時計 (最前面 z-index: 250) --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -86,6 +86,9 @@ body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode
 .event-item.active { opacity: 1; transform: translateY(0); }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
 body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
+.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
+body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
+body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
 #status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
@@ -172,14 +175,18 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 
+// PWA: Service Worker登録
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => console.log('SW registered')).catch(err => console.log('SW failed', err));
+  });
+}
+
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-// 画面休止防止
 async function requestWakeLock() {
-    try {
-        if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
-    } catch (err) {}
+    try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {}
 }
 
 function shootMinuteStars() {
@@ -191,9 +198,9 @@ function shootMinuteStars() {
             star.className = 'cyber-star';
             const startX = Math.random() * (window.innerWidth * 0.8) + (window.innerWidth * 0.2);
             const startY = Math.random() * (window.innerHeight * 0.4);
-            const angle = 160; const moveDist = 800;
+            const moveDist = 800;
             star.style.left = startX + 'px'; star.style.top = startY + 'px';
-            star.style.setProperty('--angle', angle + 'deg');
+            star.style.setProperty('--angle', '160deg');
             star.style.setProperty('--moveX', -moveDist + 'px');
             star.style.setProperty('--moveY', moveDist + 'px');
             star.style.animation = 'cyber-shoot 1.8s cubic-bezier(0.1, 0.5, 0.3, 1) forwards';
@@ -220,7 +227,6 @@ async function listUpcomingEvents() {
                         <span style="font-weight:bold;margin-right:8px;">${timeStr}</span>${event.summary}
                     </div>`;
         }).join('');
-        currentEventIndex = 0;
     } catch (e) {}
 }
 
@@ -247,8 +253,7 @@ function playPixarRandom() {
 
 function updateClock() {
     const now = new Date();
-    const mins = now.getMinutes();
-    const secs = now.getSeconds();
+    const mins = now.getMinutes(); const secs = now.getSeconds();
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     if (secs === 0) shootMinuteStars();
@@ -308,55 +313,4 @@ function toggleMode(direction) {
     updateStatus(); listUpcomingEvents();
 }
 
-function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
-function updateStatus() { 
-    document.getElementById("status").textContent = `MODE: ${MODE.toUpperCase().replace('_',' ')}`; 
-    document.body.className = "mode-" + MODE;
-}
-
-document.addEventListener('keydown', (e) => {
-    if (!activated) { startSystem(); return; }
-    if (e.key === "ArrowRight") toggleMode(1);
-    if (e.key === "ArrowLeft") toggleMode(-1);
-});
-
-async function updateWeather() {
-    try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`);
-        const data = await res.json();
-        document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
-        document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
-        document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
-        const container = document.getElementById("forecast-container");
-        const hour = new Date().getHours();
-        container.innerHTML = [3, 6, 9, 12].map(i => {
-            const h = (hour + i) % 24;
-            return `<div class="forecast-item"><div class="forecast-time">${h}時</div><div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div><div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
-        }).join('');
-    } catch (e) {}
-}
-
-function handleAuth() {
-    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
-    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
-}
-
-document.body.addEventListener('click', () => { if(!activated) startSystem(); });
-const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
-updateWeather(); setInterval(updateWeather, 900000);
-setInterval(() => {
-    const p1 = document.getElementById("panel-current"); const p2 = document.getElementById("panel-forecast");
-    if(p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } 
-    else { p2.classList.remove("active"); p1.classList.add("active"); }
-}, 10000);
-setInterval(() => {
-    const items = document.querySelectorAll('.event-item');
-    if (items.length <= 1) return;
-    items[currentEventIndex].classList.remove('active');
-    currentEventIndex = (currentEventIndex + 1) % items.length;
-    items[currentEventIndex].classList.add('active');
-}, 5000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { updateClock(); requestWakeLock(); } });
-</script>
-</body>
-</html>
+function handleStatus
