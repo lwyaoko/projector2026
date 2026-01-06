@@ -36,12 +36,12 @@ body.mode-schedule #background {
 }
 body.mode-news #news-screen { display: grid; }
 #news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
-#news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s; }
+#news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease-in-out; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 45s linear infinite; padding-left: 100%; }
-@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-300%); } }
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 160s linear infinite; padding-left: 100%; display: inline-block; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
 /* ニュース中のミニ時計 */
 #mini-clock { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; border-left: 5px solid #00fff2; z-index: 290; display: none; }
@@ -290,41 +290,45 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース機能 (ロイターRSS & 重複除外) ---
+// --- ニュース機能 ---
 async function fetchNews() {
     try {
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
         const data = await res.json();
         if (data.items) {
-            // タイトルの前方15文字が一致するものは重複とみなして除外
             const seenTitles = new Set();
             currentNews = data.items.filter(item => {
-                const shortTitle = item.title.substring(0, 15);
-                if (seenTitles.has(shortTitle)) return false;
-                seenTitles.add(shortTitle);
+                const clean = item.title.substring(0, 15);
+                if (seenTitles.has(clean)) return false;
+                seenTitles.add(clean);
                 return true;
             });
             newsIndex = 0;
             rotateNews();
         }
-    } catch (e) { console.error("News fetch failed", e); }
+    } catch (e) {}
 }
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
-    // タイトルの末尾にあるソース名を削除
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    const img = item.thumbnail || item.enclosure.link || "https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=1200&q=80";
+    // 画像取得改善: ニュースタイトルをキーワードにしてUnsplashから検索
+    const keywords = cleanTitle.split(/[ 　,、。]/).filter(w => w.length > 1).slice(0, 3).join(',');
+    const imgUrl = `https://source.unsplash.com/featured/?${encodeURIComponent(keywords)},news,tech`;
+    
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
-    setTimeout(() => { imgEl.src = img; imgEl.style.opacity = 1; }, 500);
+    setTimeout(() => { 
+        imgEl.src = imgUrl; 
+        imgEl.style.opacity = 1; 
+    }, 500);
 
-    // 下部テロップを更新
-    document.getElementById("news-ticker").textContent = currentNews.map(n => n.title.replace(/\s-\sReuters\s*$/i, "")).join('　　/　　');
+    const tickerContent = currentNews.map(n => n.title.replace(/\s-\sReuters\s*$/i, "")).join('　　■　　');
+    document.getElementById("news-ticker").textContent = tickerContent + "　　" + tickerContent;
     
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
