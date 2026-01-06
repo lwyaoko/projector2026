@@ -40,8 +40,8 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-/* テロップ速度を 80s に調整 (爆速と遅すぎの中間) */
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 80s linear infinite; padding-left: 100%; display: inline-block; }
+/* テロップ速度: 内容に合わせて40秒で1往復に調整 */
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
 /* ニュース中のミニ時計 */
@@ -203,7 +203,6 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 let currentNews = [], newsIndex = 0;
-let transitInfo = "運行情報を取得中...";
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -314,14 +313,13 @@ async function fetchNews() {
 
 async function fetchTransit() {
     try {
-        // Yahoo運行情報のRSSをプロキシ経由で取得
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://transit.yahoo.co.jp/rss/train/kanto`);
         const data = await res.json();
         if (data.items) {
-            transitInfo = data.items.map(i => `【${i.title}】${i.description}`).join('　　');
-            document.getElementById("news-ticker").textContent = transitInfo + "　　" + transitInfo;
+            const info = data.items.map(i => `【${i.title}】${i.description}`).join('　　');
+            document.getElementById("news-ticker").textContent = info + "　　" + info;
         }
-    } catch (e) { transitInfo = "運行情報の取得に失敗しました。"; }
+    } catch (e) {}
 }
 
 function rotateNews() {
@@ -330,14 +328,13 @@ function rotateNews() {
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像取得: ニュースの内容に基づいた安定したイメージを表示
-    const query = cleanTitle.split(/[ 　,、。]/).filter(w => w.length > 1).slice(0, 2).join(' ');
-    const imgUrl = `https://loremflickr.com/1280/720/${encodeURIComponent(query)},business,city/all`;
-    
+    // 画像取得ロジックの改善
+    // タイトルから記号を消して単語を抽出し、画像サービスから取得
+    const searchTag = cleanTitle.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, ' ').split(' ').filter(w => w.length > 1)[0] || "world";
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
     setTimeout(() => { 
-        imgEl.src = imgUrl; 
+        imgEl.src = `https://loremflickr.com/1280/720/${encodeURIComponent(searchTag)},city,news/all?lock=${newsIndex}`; 
         imgEl.style.opacity = 1; 
     }, 500);
 
