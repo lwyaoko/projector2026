@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber Clock - Cyber Star Edition</title>
+<title>Cyber & World Clock - Non-Stop Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
@@ -15,7 +15,7 @@
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
-/* 背景モード定義 (配色完全復元) */
+/* 背景モード定義 */
 body.mode-standby, body.mode-playlist, body.mode-pixar, body.mode-chill_pop { background: #000; }
 body.mode-standby #background, body.mode-playlist #background, body.mode-pixar #background, body.mode-chill_pop #background { 
     background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
@@ -28,12 +28,12 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- 新・サイバー流れ星 (邪魔にならない細い光) --- */
+/* --- サイバー流れ星 --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 .cyber-star {
     position: absolute;
-    width: 150px; /* 線の長さ */
-    height: 1px;  /* 線の細さ（邪魔にならない） */
+    width: 150px;
+    height: 1px;
     background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,255,242,0.8) 50%, rgba(255,255,255,0) 100%);
     filter: drop-shadow(0 0 5px #00fff2);
     opacity: 0;
@@ -92,7 +92,6 @@ body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
 body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
 
-/* 天気エリア視認性向上 */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
 body.mode-schedule #location-tag { color: #db7093; }
@@ -110,6 +109,8 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 .forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
 
 #player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+#tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 </style>
 </head>
 
@@ -152,7 +153,7 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
     </div>
 </div>
 
-<div id="tapNotice" style="position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100;">SYSTEM START: TAP SCREEN</div>
+<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
 <div id="player"></div>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
@@ -171,11 +172,20 @@ const LAT = 35.6895; const LON = 139.6917;
 let MODE = "standby", activated = false, player;
 let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
+let wakeLock = null; // 画面消灯防止用
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-// 分報流れ星生成 (3本)
+// Screen Wake Lock API (画面消灯・休止防止)
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch (err) {}
+}
+
 function shootMinuteStars() {
     if (MODE === "schedule") return;
     const container = document.getElementById('stars-container');
@@ -185,16 +195,12 @@ function shootMinuteStars() {
             star.className = 'cyber-star';
             const startX = Math.random() * (window.innerWidth * 0.8) + (window.innerWidth * 0.2);
             const startY = Math.random() * (window.innerHeight * 0.4);
-            const angle = 160; // 斜め
-            const moveDist = 800;
-            
-            star.style.left = startX + 'px';
-            star.style.top = startY + 'px';
+            const angle = 160; const moveDist = 800;
+            star.style.left = startX + 'px'; star.style.top = startY + 'px';
             star.style.setProperty('--angle', angle + 'deg');
             star.style.setProperty('--moveX', -moveDist + 'px');
             star.style.setProperty('--moveY', moveDist + 'px');
             star.style.animation = 'cyber-shoot 1.8s cubic-bezier(0.1, 0.5, 0.3, 1) forwards';
-            
             container.appendChild(star);
             setTimeout(() => star.remove(), 2000);
         }, i * 350);
@@ -212,10 +218,7 @@ async function listUpcomingEvents() {
             const start = new Date(event.start.dateTime || event.start.date);
             const end = new Date(event.end.dateTime || event.end.date);
             const dateStr = start.toDateString() === today.toDateString() ? "今日" : `${start.getMonth()+1}/${start.getDate()}`;
-            let timeStr = "終日";
-            if (event.start.dateTime) {
-                timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
-            }
+            let timeStr = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}` : "終日";
             return `<div class="event-item ${i===0?'active':''}">
                         <span class="event-date-tag">${dateStr}</span>
                         <span style="font-weight:bold;margin-right:8px;">${timeStr}</span>${event.summary}
@@ -246,19 +249,22 @@ function playPixarRandom() {
     player.unMute(); player.playVideo();
 }
 
-setInterval(() => {
+// メインタイマー（止まりにくいよう工夫）
+function updateClock() {
     const now = new Date();
-    const mins = now.getMinutes(); const secs = now.getSeconds();
+    const mins = now.getMinutes();
+    const secs = now.getSeconds();
+    
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
     if (secs === 0) { shootMinuteStars(); }
-
     if (activated && MODE === "schedule") {
         if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) triggerPreAction();
         if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) openKarakuri();
     }
-}, 1000);
+}
+setInterval(updateClock, 1000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -279,7 +285,7 @@ function stopKarakuri() {
 }
 
 function onYouTubeIframeAPIReady() { 
-    player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1 },
+    player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1, 'origin': location.origin },
         events: { 'onStateChange': (e) => { 
             if (e.data === YT.PlayerState.ENDED) {
                 if (MODE === "schedule") { stopKarakuri(); playBaseVideoSynced(); }
@@ -293,6 +299,7 @@ function onYouTubeIframeAPIReady() {
 function startSystem() {
     if (activated) return; activated = true;
     document.getElementById("tapNotice").style.display = "none";
+    requestWakeLock(); // 消灯防止
     playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
     if (gapiInited && gisInited) handleAuth();
 }
@@ -327,7 +334,6 @@ async function updateWeather() {
         document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
         document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
         document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
-        
         const container = document.getElementById("forecast-container");
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
@@ -363,6 +369,14 @@ setInterval(() => {
     currentEventIndex = (currentEventIndex + 1) % items.length;
     items[currentEventIndex].classList.add('active');
 }, 5000);
+
+// 再表示された時に時計を同期
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        updateClock();
+        requestWakeLock();
+    }
+});
 </script>
 </body>
 </html>
