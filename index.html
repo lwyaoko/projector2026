@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Bug Fixed Edition</title>
+<title>Cyber & World Clock - Visual Enhanced</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -79,20 +79,28 @@ body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .
 body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
 body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
-/* --- UI要素 --- */
-#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
-body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
-body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
-
+/* --- UI要素：天気エリア --- */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
 body.mode-schedule #location-tag { color: #db7093; }
 body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pixar #location-tag, body.mode-chill_pop #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
 
-.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 75%; left: 12.5%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; }
+.weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 80%; left: 10%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; padding: 10px; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
-body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
+body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.85); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel, body.mode-chill_pop .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
+
+/* 3時間ごと予報の文字・レイアウト強化 */
+#forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
+.forecast-item { text-align: center; }
+.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; } /* 時間を大きく太く */
+.forecast-icon { font-size: 3.5vw; margin: 5px 0; }
+.forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
+
+/* その他UI */
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
+body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
+body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
 
 #player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
@@ -130,11 +138,11 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
     <div id="location-tag">TOKYO / SHINJUKU</div>
     <div id="weather-display-area">
         <div id="panel-current" class="weather-panel active">
-            <div id="main-icon" style="font-size:6vw; margin-right:40px;">--</div>
-            <div style="font-size:3vw; font-weight:bold;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
+            <div id="main-icon" style="font-size:7vw; margin-right:40px;">--</div>
+            <div style="font-size:3.5vw; font-weight:900;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
         </div>
         <div id="panel-forecast" class="weather-panel">
-            <div id="forecast-container" style="display:flex; width:100%; justify-content:space-around;"></div>
+            <div id="forecast-container"></div>
         </div>
     </div>
 </div>
@@ -246,14 +254,11 @@ function triggerPreAction() {
 }
 
 function openKarakuri() { document.getElementById('karakuri-overlay').classList.add('open'); }
-
-// からくりリセット（バグ修正の肝）
 function resetKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
     overlay.classList.remove('open', 'active');
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
 }
-
 function stopKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
     overlay.classList.remove('open');
@@ -282,14 +287,11 @@ function startSystem() {
 function toggleMode(direction) {
     const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop"];
     MODE = MODES[(MODES.indexOf(MODE) + direction + 5) % 5];
-    
-    resetKarakuri(); // モード切替時にからくりを強制終了
-    
+    resetKarakuri();
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
     else playBaseVideoSynced();
-    
     updateStatus(); listUpcomingEvents();
 }
 
@@ -312,11 +314,16 @@ async function updateWeather() {
         document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
         document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
         document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
+        
         const container = document.getElementById("forecast-container");
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
             const h = (hour + i) % 24;
-            return `<div style="text-align:center;"><div style="font-size:1vw;">${h}時</div><div style="font-size:3vw;margin:5px 0;">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div><div style="font-size:1.5vw;">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
+            return `<div class="forecast-item">
+                        <div class="forecast-time">${h}時</div>
+                        <div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div>
+                        <div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
+                    </div>`;
         }).join('');
     } catch (e) {}
 }
