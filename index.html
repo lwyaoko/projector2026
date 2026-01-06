@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Non-Stop Edition</title>
+<title>Cyber & World Clock - Reuters News Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -32,16 +32,16 @@ body.mode-schedule #background {
 #news-screen { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     display: none; grid-template-columns: 60% 40%; grid-template-rows: 1fr 120px;
-    background: #00254d; color: white; z-index: 280; 
+    background: #001a33; color: white; z-index: 280; 
 }
 body.mode-news #news-screen { display: grid; }
 #news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
 #news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s; }
-#news-headline-area { padding: 40px; background: linear-gradient(135deg, #003366, #001529); display: flex; flex-direction: column; justify-content: center; }
+#news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; }
-@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-250%); } }
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 45s linear infinite; padding-left: 100%; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-300%); } }
 
 /* ニュース中のミニ時計 */
 #mini-clock { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; border-left: 5px solid #00fff2; z-index: 290; display: none; }
@@ -141,8 +141,8 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 
 <div id="news-screen">
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
-    <div id="news-headline-area"><div id="news-title">Loading News...</div></div>
-    <div id="news-ticker-area"><div id="news-ticker">主要ニュースを読み込んでいます...</div></div>
+    <div id="news-headline-area"><div id="news-title">読み込み中...</div></div>
+    <div id="news-ticker-area"><div id="news-ticker">ロイターニュースを取得しています...</div></div>
     <div id="mini-clock">00:00:00</div>
 </div>
 
@@ -201,7 +201,7 @@ let MODE = "standby", activated = false, player;
 let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
-let currentNews = [], newsIndex = 0; // 追加
+let currentNews = [], newsIndex = 0;
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -275,12 +275,11 @@ function playPixarRandom() {
 
 function updateClock() {
     const now = new Date();
-    const mins = now.getMinutes();
-    const secs = now.getSeconds();
+    const mins = now.getMinutes(); const secs = now.getSeconds();
     const timeStr = now.toTimeString().split(' ')[0];
     
     document.getElementById("clock").textContent = timeStr;
-    document.getElementById("mini-clock").textContent = timeStr; // ミニ時計更新
+    document.getElementById("mini-clock").textContent = timeStr;
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
     if (secs === 0) { shootMinuteStars(); }
@@ -291,24 +290,42 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース機能用ロジック ---
+// --- ニュース機能 (ロイターRSS & 重複除外) ---
 async function fetchNews() {
     try {
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/headlines/section/topic/NATION?hl=ja&gl=JP&ceid=JP:ja`);
+        const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
         const data = await res.json();
-        if (data.items) { currentNews = data.items; rotateNews(); }
-    } catch (e) { console.error("News error"); }
+        if (data.items) {
+            // タイトルの前方15文字が一致するものは重複とみなして除外
+            const seenTitles = new Set();
+            currentNews = data.items.filter(item => {
+                const shortTitle = item.title.substring(0, 15);
+                if (seenTitles.has(shortTitle)) return false;
+                seenTitles.add(shortTitle);
+                return true;
+            });
+            newsIndex = 0;
+            rotateNews();
+        }
+    } catch (e) { console.error("News fetch failed", e); }
 }
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
-    document.getElementById("news-title").textContent = item.title.split(' - ')[0];
-    const img = item.thumbnail || item.enclosure.link || "https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=800&q=80";
+    // タイトルの末尾にあるソース名を削除
+    const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
+    document.getElementById("news-title").textContent = cleanTitle;
+    
+    const img = item.thumbnail || item.enclosure.link || "https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=1200&q=80";
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
     setTimeout(() => { imgEl.src = img; imgEl.style.opacity = 1; }, 500);
-    document.getElementById("news-ticker").textContent = currentNews.map(n => n.title.split(' - ')[0]).join('　　/　　');
+
+    // 下部テロップを更新
+    document.getElementById("news-ticker").textContent = currentNews.map(n => n.title.replace(/\s-\sReuters\s*$/i, "")).join('　　/　　');
+    
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
 setInterval(rotateNews, 15000);
@@ -352,7 +369,6 @@ function startSystem() {
 }
 
 function toggleMode(direction) {
-    // モードに "news" を追加
     const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop", "news"];
     MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
     resetKarakuri();
