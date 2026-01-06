@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Special 00min Sync</title>
+<title>Cyber & World Clock - Pixar Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,9 +15,9 @@
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
-/* 1. サイバーモード (STANDBY / PLAYLIST) */
-body.mode-standby, body.mode-playlist { background: #000; }
-body.mode-standby #background, body.mode-playlist #background { 
+/* 1. サイバーモード (STANDBY / PLAYLIST / PIXAR) */
+body.mode-standby, body.mode-playlist, body.mode-pixar { background: #000; }
+body.mode-standby #background, body.mode-playlist #background, body.mode-pixar #background { 
     background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
     background-size: 400% 400%; animation: bgMove 30s ease infinite; opacity: 0.4; 
 }
@@ -33,8 +33,8 @@ body.mode-schedule #background {
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
-body.mode-standby #clock, body.mode-playlist #clock { color: #00fff2; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; }
-body.mode-standby #date, body.mode-playlist #date { color: rgba(0, 255, 242, 0.7); }
+body.mode-standby #clock, body.mode-playlist #clock, body.mode-pixar #clock { color: #00fff2; text-shadow: 0 0 10px #00fff2, 0 0 30px #00fff2; }
+body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date { color: rgba(0, 255, 242, 0.7); }
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
@@ -65,32 +65,32 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 /* --- 右上：カレンダー --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 500px; height: 120px; overflow: hidden; }
 #calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; }
-body.mode-standby #calendar-title, body.mode-playlist #calendar-title { color: #00fff2; }
+body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode-pixar #calendar-title { color: #00fff2; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
 #calendar-list { position: relative; height: 80px; }
 .event-item { position: absolute; top: 0; right: 0; width: 100%; font-size: 1.5em; white-space: nowrap; opacity: 0; transform: translateY(10px); transition: all 0.8s ease; border-right: 4px solid; padding-right: 15px; box-sizing: border-box; }
 .event-item.active { opacity: 1; transform: translateY(0); }
-body.mode-standby .event-item, body.mode-playlist .event-item { color: #ffffff !important; border-right-color: #00fff2; }
+body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item { color: #ffffff !important; border-right-color: #00fff2; }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
 .event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
-body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
+body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
 body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
 /* --- 下部：天気 --- */
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
-body.mode-standby #location-tag, body.mode-playlist #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pixar #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
 body.mode-schedule #location-tag { color: #db7093; }
 #weather-display-area { position: relative; width: 100%; height: 10vw; display: flex; justify-content: center; align-items: center; }
 .weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 75%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
-body.mode-standby .weather-panel, body.mode-playlist .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
+body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
 body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.8); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 #forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
 
 /* --- その他 --- */
 #status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
-body.mode-standby #status, body.mode-playlist #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
+body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
@@ -147,6 +147,8 @@ const CLIENT_ID = '751679996100-jpv7socqnm0ldlv6b5fp0uavbdq6a24u.apps.googleuser
 const API_KEY = 'AIzaSyAlT8AxD8pq3iqIV7By4calMIKLzG_vDe8';
 const BASE_VIDEO_ID = "LDmImf4WIk4"; 
 const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
+const PIXAR_VIDEO_ID = "ecAR5gVCRmE";
+const PIXAR_TIMESTAMPS = [0, 296, 512, 775, 1136, 1413, 1654, 1907, 2280, 2573]; // 指定曲の開始秒
 const LAT = 35.6895; const LON = 139.6917;
 
 let MODE = "standby", activated = false, player;
@@ -190,27 +192,22 @@ setInterval(() => {
     items[currentEventIndex].classList.add('active');
 }, 5000);
 
-// 通常曲を今の時刻に合わせて再生（00分の時は必ず最初からにするロジックを内包）
 function playBaseVideoSynced() {
     const now = new Date();
     const mins = now.getMinutes();
     const secs = now.getSeconds();
-    
     let offsetSeconds = 0;
-    if (mins === 0) {
-        // 00分台なら0秒から再生
-        offsetSeconds = secs;
-    } else {
-        // それ以外は15分ごとのサイクルに同期
-        const baseMins = Math.floor(mins / 15) * 15;
-        offsetSeconds = ((mins - baseMins) * 60) + secs;
-    }
-    
-    player.loadVideoById({
-        videoId: BASE_VIDEO_ID,
-        startSeconds: offsetSeconds
-    });
+    if (mins === 0) { offsetSeconds = secs; } 
+    else { const baseMins = Math.floor(mins / 15) * 15; offsetSeconds = ((mins - baseMins) * 60) + secs; }
+    player.loadVideoById({ videoId: BASE_VIDEO_ID, startSeconds: offsetSeconds });
     if(MODE === "standby") player.mute(); else player.unMute();
+    player.playVideo();
+}
+
+function playPixarRandom() {
+    const randomStart = PIXAR_TIMESTAMPS[Math.floor(Math.random() * PIXAR_TIMESTAMPS.length)];
+    player.loadVideoById({ videoId: PIXAR_VIDEO_ID, startSeconds: randomStart });
+    player.unMute();
     player.playVideo();
 }
 
@@ -222,12 +219,8 @@ setInterval(() => {
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
     if (activated && MODE === "schedule") {
-        if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) {
-            triggerPreAction();
-        }
-        if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) {
-            openKarakuri();
-        }
+        if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) { triggerPreAction(); }
+        if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) { openKarakuri(); }
     }
 }, 1000);
 
@@ -241,10 +234,7 @@ function triggerPreAction() {
     player.playVideo();
 }
 
-function openKarakuri() {
-    const overlay = document.getElementById('karakuri-overlay');
-    overlay.classList.add('open'); 
-}
+function openKarakuri() { document.getElementById('karakuri-overlay').classList.add('open'); }
 
 function stopKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -258,9 +248,14 @@ function stopKarakuri() {
 function onYouTubeIframeAPIReady() { 
     player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1 },
         events: { 'onStateChange': (e) => { 
-            if (e.data === YT.PlayerState.ENDED && MODE === "schedule") {
-                stopKarakuri();
-                playBaseVideoSynced();
+            // 終了時の処理
+            if (e.data === YT.PlayerState.ENDED) {
+                if (MODE === "schedule") {
+                    stopKarakuri();
+                    playBaseVideoSynced();
+                } else if (MODE === "pixar") {
+                    playPixarRandom(); // ピクサーモードは終わったらまたランダムでループ
+                }
             } 
         } }
     }); 
@@ -275,10 +270,13 @@ function startSystem() {
 }
 
 function toggleMode(direction) {
-    const MODES = ["standby", "schedule", "playlist"];
-    MODE = MODES[(MODES.indexOf(MODE) + direction + 3) % 3];
+    const MODES = ["standby", "schedule", "playlist", "pixar"];
+    MODE = MODES[(MODES.indexOf(MODE) + direction + 4) % 4];
+    
     if (MODE === "playlist") {
         player.loadPlaylist({list: PLAYLIST_ID}); player.unMute();
+    } else if (MODE === "pixar") {
+        playPixarRandom();
     } else {
         playBaseVideoSynced();
     }
