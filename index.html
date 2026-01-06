@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Non-Stop Edition</title>
+<title>Cyber & World Clock</title>
+<link rel="manifest" href="manifest.json">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
@@ -45,7 +47,7 @@ body.mode-schedule #background {
     100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
 }
 
-/* --- 中央：時計 (最前面 z-index: 250) --- */
+/* --- 中央：時計 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -54,7 +56,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 (z-index: 200) --- */
+/* --- からくり時計演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -84,9 +86,6 @@ body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode
 .event-item.active { opacity: 1; transform: translateY(0); }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
 body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
-.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
-body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
-body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
 #status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
@@ -102,9 +101,8 @@ body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pix
 body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.85); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel, body.mode-chill_pop .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
 
-#forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
 .forecast-item { text-align: center; }
-.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; } 
+.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; }
 .forecast-icon { font-size: 3.5vw; margin: 5px 0; }
 .forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
 
@@ -148,7 +146,7 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
             <div style="font-size:3.5vw; font-weight:900;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
         </div>
         <div id="panel-forecast" class="weather-panel">
-            <div id="forecast-container"></div>
+            <div id="forecast-container" style="display:flex; width:100%; justify-content:space-around;"></div>
         </div>
     </div>
 </div>
@@ -172,17 +170,15 @@ const LAT = 35.6895; const LON = 139.6917;
 let MODE = "standby", activated = false, player;
 let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
-let wakeLock = null; // 画面消灯防止用
+let wakeLock = null;
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-// Screen Wake Lock API (画面消灯・休止防止)
+// 画面休止防止
 async function requestWakeLock() {
     try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-        }
+        if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
     } catch (err) {}
 }
 
@@ -249,16 +245,13 @@ function playPixarRandom() {
     player.unMute(); player.playVideo();
 }
 
-// メインタイマー（止まりにくいよう工夫）
 function updateClock() {
     const now = new Date();
     const mins = now.getMinutes();
     const secs = now.getSeconds();
-    
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
-    
-    if (secs === 0) { shootMinuteStars(); }
+    if (secs === 0) shootMinuteStars();
     if (activated && MODE === "schedule") {
         if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) triggerPreAction();
         if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) openKarakuri();
@@ -285,7 +278,7 @@ function stopKarakuri() {
 }
 
 function onYouTubeIframeAPIReady() { 
-    player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1, 'origin': location.origin },
+    player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1 },
         events: { 'onStateChange': (e) => { 
             if (e.data === YT.PlayerState.ENDED) {
                 if (MODE === "schedule") { stopKarakuri(); playBaseVideoSynced(); }
@@ -299,7 +292,7 @@ function onYouTubeIframeAPIReady() {
 function startSystem() {
     if (activated) return; activated = true;
     document.getElementById("tapNotice").style.display = "none";
-    requestWakeLock(); // 消灯防止
+    requestWakeLock();
     playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
     if (gapiInited && gisInited) handleAuth();
 }
@@ -338,11 +331,7 @@ async function updateWeather() {
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
             const h = (hour + i) % 24;
-            return `<div class="forecast-item">
-                        <div class="forecast-time">${h}時</div>
-                        <div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div>
-                        <div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
-                    </div>`;
+            return `<div class="forecast-item"><div class="forecast-time">${h}時</div><div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div><div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div></div>`;
         }).join('');
     } catch (e) {}
 }
@@ -355,13 +344,11 @@ function handleAuth() {
 document.body.addEventListener('click', () => { if(!activated) startSystem(); });
 const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
 updateWeather(); setInterval(updateWeather, 900000);
-
 setInterval(() => {
     const p1 = document.getElementById("panel-current"); const p2 = document.getElementById("panel-forecast");
     if(p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } 
     else { p2.classList.remove("active"); p1.classList.add("active"); }
 }, 10000);
-
 setInterval(() => {
     const items = document.querySelectorAll('.event-item');
     if (items.length <= 1) return;
@@ -369,14 +356,7 @@ setInterval(() => {
     currentEventIndex = (currentEventIndex + 1) % items.length;
     items[currentEventIndex].classList.add('active');
 }, 5000);
-
-// 再表示された時に時計を同期
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-        updateClock();
-        requestWakeLock();
-    }
-});
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { updateClock(); requestWakeLock(); } });
 </script>
 </body>
 </html>
