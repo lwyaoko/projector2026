@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Visual Enhanced</title>
+<title>Cyber Clock - Minute Signal Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -28,15 +28,17 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- 流れ星演出 --- */
-.star { position: absolute; background: linear-gradient(90deg, #fff, transparent); height: 2px; filter: drop-shadow(0 0 10px #fff); z-index: -1; opacity: 0; }
+/* --- 流れ星演出 (毎分00秒の分報制御) --- */
+#stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.star { position: absolute; background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0)); height: 2px; filter: drop-shadow(0 0 10px #fff); opacity: 0; }
 @keyframes shoot {
-    0% { transform: translateX(0) translateY(0) rotate(var(--angle)); opacity: 1; width: 0; }
-    30% { width: 150px; opacity: 1; }
+    0% { transform: translateX(0) translateY(0) rotate(var(--angle)); opacity: 0; width: 0; }
+    15% { opacity: 1; width: 200px; }
+    85% { opacity: 1; }
     100% { transform: translateX(var(--distX)) translateY(var(--distY)) rotate(var(--angle)); opacity: 0; width: 0; }
 }
 
-/* --- 中央：時計 (最前面 z-index: 250) --- */
+/* --- 中央：時計 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -45,7 +47,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 (z-index: 200) --- */
+/* --- からくり演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -65,7 +67,7 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 @keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
-/* --- 右上：カレンダー --- */
+/* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; }
 #calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
@@ -75,11 +77,11 @@ body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode
 .event-item.active { opacity: 1; transform: translateY(0); }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
 body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
-.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
-body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
-body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
-/* --- UI要素：天気エリア --- */
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
+body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
+body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
+
 #weather-section { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); width: 95%; text-align: center; z-index: 20; height: 15vw; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
 body.mode-schedule #location-tag { color: #db7093; }
@@ -90,21 +92,7 @@ body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pix
 body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.85); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
 body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel, body.mode-chill_pop .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
 
-/* 3時間ごと予報の文字・レイアウト強化 */
-#forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
-.forecast-item { text-align: center; }
-.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; } /* 時間を大きく太く */
-.forecast-icon { font-size: 3.5vw; margin: 5px 0; }
-.forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
-
-/* その他UI */
-#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
-body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
-body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
-
 #player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-#tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 </style>
 </head>
 
@@ -142,12 +130,12 @@ body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, 
             <div style="font-size:3.5vw; font-weight:900;"><span id="temp-val">--</span> / <span id="prec-val">--</span></div>
         </div>
         <div id="panel-forecast" class="weather-panel">
-            <div id="forecast-container"></div>
+            <div id="forecast-container" style="display:flex; width:100%; justify-content:space-around;"></div>
         </div>
     </div>
 </div>
 
-<div id="tapNotice">SYSTEM START: TAP SCREEN</div>
+<div id="tapNotice" style="position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100;">SYSTEM START: TAP SCREEN</div>
 <div id="player"></div>
 
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
@@ -170,22 +158,27 @@ let currentEventIndex = 0;
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-function createStar() {
+// 分報流れ星生成 (3本同時)
+function shootMinuteStars() {
     if (MODE === "schedule") return;
-    const container = document.getElementById('stars-container');
-    const star = document.createElement('div');
-    star.className = 'star';
-    const startX = Math.random() * window.innerWidth;
-    const startY = Math.random() * (window.innerHeight / 2);
-    const angle = Math.random() * 45 + 135;
-    const dist = 400 + Math.random() * 400;
-    const distX = Math.cos(angle * Math.PI / 180) * dist;
-    const distY = Math.sin(angle * Math.PI / 180) * dist;
-    star.style.left = startX + 'px'; star.style.top = startY + 'px';
-    star.style.setProperty('--angle', angle + 'deg');
-    star.style.setProperty('--distX', distX + 'px'); star.style.setProperty('--distY', distY + 'px');
-    star.style.animation = 'shoot 2s ease-out forwards';
-    container.appendChild(star); setTimeout(() => star.remove(), 2000);
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const container = document.getElementById('stars-container');
+            const star = document.createElement('div');
+            star.className = 'star';
+            const startX = Math.random() * window.innerWidth;
+            const startY = Math.random() * (window.innerHeight / 3);
+            const angle = 155 + (Math.random() * 20);
+            const dist = 700 + Math.random() * 500;
+            const distX = Math.cos(angle * Math.PI / 180) * dist;
+            const distY = Math.sin(angle * Math.PI / 180) * dist;
+            star.style.left = startX + 'px'; star.style.top = startY + 'px';
+            star.style.setProperty('--angle', angle + 'deg');
+            star.style.setProperty('--distX', distX + 'px'); star.style.setProperty('--distY', distY + 'px');
+            star.style.animation = `shoot ${2 + Math.random()}s linear forwards`;
+            container.appendChild(star); setTimeout(() => star.remove(), 3000);
+        }, i * 200); // わずかにずらして出現
+    }
 }
 
 async function listUpcomingEvents() {
@@ -239,11 +232,13 @@ setInterval(() => {
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
+    // 【毎分00秒】流れ星を3本流す
+    if (secs === 0) { shootMinuteStars(); }
+
     if (activated && MODE === "schedule") {
         if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 13) triggerPreAction();
         if ((mins === 0 || mins === 15 || mins === 30 || mins === 45) && secs === 0) openKarakuri();
     }
-    if (secs % 20 === 0) createStar();
 }, 1000);
 
 function triggerPreAction() {
@@ -252,7 +247,6 @@ function triggerPreAction() {
     setTimeout(() => overlay.classList.add('active'), 100); 
     player.loadVideoById("HSZBQUcB1Dc"); player.unMute(); player.playVideo();
 }
-
 function openKarakuri() { document.getElementById('karakuri-overlay').classList.add('open'); }
 function resetKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -314,15 +308,14 @@ async function updateWeather() {
         document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
         document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
         document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
-        
         const container = document.getElementById("forecast-container");
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
             const h = (hour + i) % 24;
-            return `<div class="forecast-item">
-                        <div class="forecast-time">${h}時</div>
-                        <div class="forecast-icon">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div>
-                        <div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
+            return `<div class="forecast-item" style="text-align: center;">
+                        <div style="font-size: 1.8vw; font-weight: 900; margin-bottom: 5px;">${h}時</div>
+                        <div style="font-size: 3.5vw; margin: 5px 0;">${(data.hourly.weather_code[hour+i] <= 3) ? "☀️" : "☁️"}</div>
+                        <div style="font-size: 1.8vw; font-weight: bold; opacity: 0.9;">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
                     </div>`;
         }).join('');
     } catch (e) {}
