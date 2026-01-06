@@ -40,7 +40,6 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-/* テロップ速度: 内容に合わせて40秒で1往復に調整 */
 #news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
@@ -300,7 +299,7 @@ async function fetchNews() {
         if (data.items) {
             const seenTitles = new Set();
             currentNews = data.items.filter(item => {
-                const clean = item.title.substring(0, 15);
+                const clean = item.title.substring(0, 20);
                 if (seenTitles.has(clean)) return false;
                 seenTitles.add(clean);
                 return true;
@@ -328,14 +327,22 @@ function rotateNews() {
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像取得ロジックの改善
-    // タイトルから記号を消して単語を抽出し、画像サービスから取得
-    const searchTag = cleanTitle.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, ' ').split(' ').filter(w => w.length > 1)[0] || "world";
+    // 画像検索用ワード抽出（カッコ内のワードや地名を優先的に取得）
+    const keywords = cleanTitle.match(/[一-龠]{2,}|[A-Z]{2,}/g) || ["world"];
+    const searchTag = keywords.join(',');
+
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
+    
+    // 猫画像を避けるため、UnsplashのAPIに変更
+    const newImgUrl = `https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=1280&q=80`; // 予備画像
+    const dynamicImgUrl = `https://source.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)}`;
+
     setTimeout(() => { 
-        imgEl.src = `https://loremflickr.com/1280/720/${encodeURIComponent(searchTag)},city,news/all?lock=${newsIndex}`; 
+        imgEl.src = dynamicImgUrl; 
         imgEl.style.opacity = 1; 
+        // もし画像読み込みに失敗したら、一般的なニュース画像を出す
+        imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
     newsIndex = (newsIndex + 1) % currentNews.length;
