@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Non-Stop Edition</title>
+<title>Cyber & World Clock - News Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -28,6 +28,34 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
+/* --- ニュースモード専用：トレインビジョン風 --- */
+#news-screen { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    display: none; grid-template-columns: 60% 40%; grid-template-rows: 1fr 120px;
+    background: #00254d; color: white; z-index: 150;
+}
+body.mode-news #news-screen { display: grid; }
+#news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
+#news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s; }
+#news-headline-area { padding: 40px; background: linear-gradient(135deg, #003366, #001529); display: flex; flex-direction: column; justify-content: center; }
+#news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+#news-ticker-area { 
+    grid-column: span 2; background: #fff; color: #000; overflow: hidden; 
+    display: flex; align-items: center; border-top: 8px solid #0056b3;
+}
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 35s linear infinite; padding-left: 100%; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-200%); } }
+
+/* ニュース中のミニ時計 */
+#mini-clock { 
+    position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); 
+    padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; 
+    border-left: 5px solid #00fff2; z-index: 260; display: none;
+}
+body.mode-news #mini-clock { display: block; }
+body.mode-news #clock-container, body.mode-news #weather-section, body.mode-news #calendar-container { display: none; }
+body.mode-news #status { background: #0056b3; border: none; box-shadow: none; color: white; }
+
 /* --- サイバー流れ星 --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 .cyber-star {
@@ -45,7 +73,7 @@ body.mode-schedule #background {
     100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
 }
 
-/* --- 中央：時計 (最前面 z-index: 250) --- */
+/* --- 中央：時計 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -54,7 +82,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 (z-index: 200) --- */
+/* --- からくり時計演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -66,13 +94,6 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 .stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
-#karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
-#karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
-#karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
-#karakuri-overlay.open .sun-bright { animation: pulse 3s ease-in-out infinite; }
-@keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
-@keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
 /* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; }
@@ -82,13 +103,8 @@ body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode
 #calendar-list { position: relative; height: 80px; }
 .event-item { position: absolute; top: 0; right: 0; width: 100%; font-size: 1.5em; white-space: nowrap; opacity: 0; transform: translateY(10px); transition: all 0.8s ease; border-right: 4px solid; padding-right: 15px; box-sizing: border-box; }
 .event-item.active { opacity: 1; transform: translateY(0); }
-body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
-body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
-.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
-body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
-body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
-#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 300; cursor: pointer; text-transform: uppercase; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
 body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
 
@@ -99,14 +115,6 @@ body.mode-standby #location-tag, body.mode-playlist #location-tag, body.mode-pix
 
 .weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 80%; left: 10%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; padding: 10px; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
-body.mode-schedule .weather-panel { background: rgba(255, 255, 255, 0.85); border: 2px solid #ccf2ff; box-shadow: 5px 5px 0px #ccf2ff; color: #6a5acd; }
-body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-pixar .weather-panel, body.mode-chill_pop .weather-panel { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; }
-
-#forecast-container { display: flex; width: 100%; justify-content: space-around; align-items: center; }
-.forecast-item { text-align: center; }
-.forecast-time { font-size: 1.8vw; font-weight: 900; margin-bottom: 5px; } 
-.forecast-icon { font-size: 3.5vw; margin: 5px 0; }
-.forecast-temp { font-size: 1.8vw; font-weight: bold; opacity: 0.9; }
 
 #player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
@@ -117,6 +125,13 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 <body class="mode-standby">
 <div id="background"></div>
 <div id="stars-container"></div>
+
+<div id="news-screen">
+    <div id="news-image-area"><img id="news-image" src="" alt=""></div>
+    <div id="news-headline-area"><div id="news-title">Loading News...</div></div>
+    <div id="news-ticker-area"><div id="news-ticker">主要ニュースを読み込んでいます... </div></div>
+    <div id="mini-clock">00:00:00</div>
+</div>
 
 <div id="karakuri-overlay">
     <div class="door door-left">✨</div>
@@ -172,22 +187,18 @@ const LAT = 35.6895; const LON = 139.6917;
 let MODE = "standby", activated = false, player;
 let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
-let wakeLock = null; // 画面消灯防止用
+let wakeLock = null;
+let currentNews = [], newsIndex = 0;
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-// Screen Wake Lock API (画面消灯・休止防止)
 async function requestWakeLock() {
-    try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-        }
-    } catch (err) {}
+    try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) {}
 }
 
 function shootMinuteStars() {
-    if (MODE === "schedule") return;
+    if (MODE === "schedule" || MODE === "news") return;
     const container = document.getElementById('stars-container');
     for (let i = 0; i < 3; i++) {
         setTimeout(() => {
@@ -249,13 +260,13 @@ function playPixarRandom() {
     player.unMute(); player.playVideo();
 }
 
-// メインタイマー（止まりにくいよう工夫）
 function updateClock() {
     const now = new Date();
-    const mins = now.getMinutes();
-    const secs = now.getSeconds();
+    const mins = now.getMinutes(); const secs = now.getSeconds();
+    const timeStr = now.toTimeString().split(' ')[0];
     
-    document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
+    document.getElementById("clock").textContent = timeStr;
+    document.getElementById("mini-clock").textContent = timeStr;
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
     if (secs === 0) { shootMinuteStars(); }
@@ -265,6 +276,27 @@ function updateClock() {
     }
 }
 setInterval(updateClock, 1000);
+
+async function fetchNews() {
+    try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/headlines/section/topic/NATION?hl=ja&gl=JP&ceid=JP:ja`);
+        const data = await res.json();
+        if (data.items) { currentNews = data.items; rotateNews(); }
+    } catch (e) {}
+}
+
+function rotateNews() {
+    if (currentNews.length === 0 || MODE !== "news") return;
+    const item = currentNews[newsIndex];
+    document.getElementById("news-title").textContent = item.title.split(' - ')[0];
+    const img = item.thumbnail || item.enclosure.link || "https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=800&q=80";
+    const imgEl = document.getElementById("news-image");
+    imgEl.style.opacity = 0;
+    setTimeout(() => { imgEl.src = img; imgEl.style.opacity = 1; }, 500);
+    document.getElementById("news-ticker").textContent = currentNews.map(n => n.title.split(' - ')[0]).join('　　/　　');
+    newsIndex = (newsIndex + 1) % currentNews.length;
+}
+setInterval(rotateNews, 15000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -299,18 +331,19 @@ function onYouTubeIframeAPIReady() {
 function startSystem() {
     if (activated) return; activated = true;
     document.getElementById("tapNotice").style.display = "none";
-    requestWakeLock(); // 消灯防止
+    requestWakeLock();
     playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
     if (gapiInited && gisInited) handleAuth();
 }
 
 function toggleMode(direction) {
-    const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop"];
-    MODE = MODES[(MODES.indexOf(MODE) + direction + 5) % 5];
+    const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop", "news"];
+    MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
     resetKarakuri();
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
+    else if (MODE === "news") { fetchNews(); playBaseVideoSynced(); }
     else playBaseVideoSynced();
     updateStatus(); listUpcomingEvents();
 }
@@ -370,14 +403,9 @@ setInterval(() => {
     items[currentEventIndex].classList.add('active');
 }, 5000);
 
-// 再表示された時に時計を同期
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-        updateClock();
-        requestWakeLock();
-    }
+    if (document.visibilityState === "visible") { updateClock(); requestWakeLock(); }
 });
 </script>
 </body>
 </html>
-
