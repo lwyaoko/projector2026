@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Ultimate Complete Edition</title>
+<title>Cyber & World Clock - Ultimate 15min Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
 <style>
-/* --- 全体レイアウト固定 --- */
+/* --- 全体レイアウト --- */
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
@@ -26,14 +26,14 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- 右上：カレンダー (1件切り替え・日付入り) --- */
-#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; }
+/* --- 右上：カレンダー (1件切り替え) --- */
+#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 500px; height: 120px; overflow: hidden; }
 #calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; }
 body.mode-standby #calendar-title, body.mode-playlist #calendar-title { color: #00fff2; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
 
 #calendar-list { position: relative; height: 80px; }
-.event-item { position: absolute; top: 0; right: 0; width: 100%; font-size: 1.6em; white-space: nowrap; opacity: 0; transform: translateY(10px); transition: all 0.8s ease; border-right: 4px solid; padding-right: 15px; }
+.event-item { position: absolute; top: 0; right: 0; width: 100%; font-size: 1.5em; white-space: nowrap; opacity: 0; transform: translateY(10px); transition: all 0.8s ease; border-right: 4px solid; padding-right: 15px; box-sizing: border-box; }
 .event-item.active { opacity: 1; transform: translateY(0); }
 body.mode-standby .event-item, body.mode-playlist .event-item { color: #ffffff !important; border-right-color: #00fff2; }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
@@ -56,7 +56,6 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 #location-tag { font-size: 1.8vw; letter-spacing: 0.5em; margin-bottom: 12px; font-weight: bold; }
 body.mode-standby #location-tag, body.mode-playlist #location-tag { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
 body.mode-schedule #location-tag { color: #db7093; }
-
 #weather-display-area { position: relative; width: 100%; height: 10vw; display: flex; justify-content: center; align-items: center; }
 .weather-panel { position: absolute; display: flex; justify-content: center; align-items: center; border-radius: 15px; width: 75%; opacity: 0; transform: translateY(20px); transition: all 0.8s ease; pointer-events: none; }
 .weather-panel.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -153,8 +152,16 @@ async function listUpcomingEvents() {
         const today = new Date();
         list.innerHTML = events.map((event, i) => {
             const start = new Date(event.start.dateTime || event.start.date);
+            const end = new Date(event.end.dateTime || event.end.date);
             const dateStr = start.toDateString() === today.toDateString() ? "今日" : `${start.getMonth()+1}/${start.getDate()}`;
-            const timeStr = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}` : "終日";
+            let timeStr = "終日";
+            if (event.start.dateTime) {
+                const sH = String(start.getHours()).padStart(2,'0');
+                const sM = String(start.getMinutes()).padStart(2,'0');
+                const eH = String(end.getHours()).padStart(2,'0');
+                const eM = String(end.getMinutes()).padStart(2,'0');
+                timeStr = `${sH}:${sM}-${eH}:${eM}`;
+            }
             return `<div class="event-item ${i===0?'active':''}">
                         <span class="event-date-tag">${dateStr}</span>
                         <span style="font-weight:bold;margin-right:8px;">${timeStr}</span>${event.summary}
@@ -176,30 +183,42 @@ setInterval(() => {
     const now = new Date();
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
-    if (activated && MODE === "schedule" && now.getMinutes() === 59 && now.getSeconds() === 13) triggerKarakuri();
+    
+    // 15分おきの時報チェック (00, 15, 30, 45分の13秒前)
+    if (activated && MODE === "schedule") {
+        const mins = now.getMinutes();
+        const secs = now.getSeconds();
+        if ((mins === 59 || mins === 14 || mins === 29 || mins === 44) && secs === 47) {
+            triggerKarakuri();
+            player.loadVideoById("HSZBQUcB1Dc");
+            player.unMute();
+            player.playVideo();
+        }
+    }
 }, 1000);
 
 function triggerKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
     overlay.style.display = 'block';
     setTimeout(() => overlay.classList.add('active'), 100);
-    setTimeout(() => {
-        overlay.classList.add('open');
-        player.loadVideoById("HSZBQUcB1Dc"); player.unMute(); player.playVideo();
-    }, 2000);
+    setTimeout(() => overlay.classList.add('open'), 2000);
 }
 
 function stopKarakuri() {
     const overlay = document.getElementById('karakuri-overlay');
     overlay.classList.remove('open');
-    setTimeout(() => { overlay.classList.remove('active'); setTimeout(() => overlay.style.display = 'none', 1500); }, 2000);
+    setTimeout(() => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.style.display = 'none', 1500);
+    }, 2000);
 }
 
 function onYouTubeIframeAPIReady() { 
     player = new YT.Player('player', { height: '1', width: '1', playerVars: { 'enablejsapi': 1, 'playsinline': 1 },
         events: { 'onStateChange': (e) => { 
             if (e.data === YT.PlayerState.ENDED && MODE === "schedule") {
-                stopKarakuri(); player.loadVideoById(BASE_VIDEO_ID);
+                stopKarakuri();
+                player.loadVideoById(BASE_VIDEO_ID);
                 setTimeout(() => player.playVideo(), 1000);
             } 
         } }
@@ -229,6 +248,13 @@ function updateStatus() {
     document.body.className = "mode-" + MODE;
 }
 
+// リモコン（キーボード左右）操作の復活
+document.addEventListener('keydown', (e) => {
+    if (!activated) { startSystem(); return; }
+    if (e.key === "ArrowRight") toggleMode(1);
+    if (e.key === "ArrowLeft") toggleMode(-1);
+});
+
 async function updateWeather() {
     try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,precipitation,weather_code&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`);
@@ -236,7 +262,6 @@ async function updateWeather() {
         document.getElementById("temp-val").textContent = data.current.temperature_2m.toFixed(1) + "°C";
         document.getElementById("prec-val").textContent = data.current.precipitation.toFixed(1) + "mm";
         document.getElementById("main-icon").textContent = (data.current.weather_code <= 3) ? "☀️" : "☁️";
-        
         const container = document.getElementById("forecast-container");
         const hour = new Date().getHours();
         container.innerHTML = [3, 6, 9, 12].map(i => {
