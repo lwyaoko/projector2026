@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Reuters News Edition</title>
+<title>Cyber & World Clock - Transit & News Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -40,7 +40,8 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 160s linear infinite; padding-left: 100%; display: inline-block; }
+/* テロップ速度を 80s に調整 (爆速と遅すぎの中間) */
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 80s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
 /* ニュース中のミニ時計 */
@@ -142,7 +143,7 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 <div id="news-screen">
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
     <div id="news-headline-area"><div id="news-title">読み込み中...</div></div>
-    <div id="news-ticker-area"><div id="news-ticker">ロイターニュースを取得しています...</div></div>
+    <div id="news-ticker-area"><div id="news-ticker">運行情報を取得しています...</div></div>
     <div id="mini-clock">00:00:00</div>
 </div>
 
@@ -202,6 +203,7 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 let currentNews = [], newsIndex = 0;
+let transitInfo = "運行情報を取得中...";
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -290,7 +292,7 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース機能 ---
+// --- ニュース & 運行情報機能 ---
 async function fetchNews() {
     try {
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
@@ -310,15 +312,27 @@ async function fetchNews() {
     } catch (e) {}
 }
 
+async function fetchTransit() {
+    try {
+        // Yahoo運行情報のRSSをプロキシ経由で取得
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://transit.yahoo.co.jp/rss/train/kanto`);
+        const data = await res.json();
+        if (data.items) {
+            transitInfo = data.items.map(i => `【${i.title}】${i.description}`).join('　　');
+            document.getElementById("news-ticker").textContent = transitInfo + "　　" + transitInfo;
+        }
+    } catch (e) { transitInfo = "運行情報の取得に失敗しました。"; }
+}
+
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像取得改善: ニュースタイトルをキーワードにしてUnsplashから検索
-    const keywords = cleanTitle.split(/[ 　,、。]/).filter(w => w.length > 1).slice(0, 3).join(',');
-    const imgUrl = `https://source.unsplash.com/featured/?${encodeURIComponent(keywords)},news,tech`;
+    // 画像取得: ニュースの内容に基づいた安定したイメージを表示
+    const query = cleanTitle.split(/[ 　,、。]/).filter(w => w.length > 1).slice(0, 2).join(' ');
+    const imgUrl = `https://loremflickr.com/1280/720/${encodeURIComponent(query)},business,city/all`;
     
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
@@ -327,9 +341,6 @@ function rotateNews() {
         imgEl.style.opacity = 1; 
     }, 500);
 
-    const tickerContent = currentNews.map(n => n.title.replace(/\s-\sReuters\s*$/i, "")).join('　　■　　');
-    document.getElementById("news-ticker").textContent = tickerContent + "　　" + tickerContent;
-    
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
 setInterval(rotateNews, 15000);
@@ -379,7 +390,7 @@ function toggleMode(direction) {
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
-    else if (MODE === "news") { fetchNews(); playBaseVideoSynced(); }
+    else if (MODE === "news") { fetchNews(); fetchTransit(); playBaseVideoSynced(); }
     else playBaseVideoSynced();
     updateStatus(); listUpcomingEvents();
 }
