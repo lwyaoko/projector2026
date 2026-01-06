@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock</title>
+<title>Cyber & World Clock - Special 00min Sync</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,12 +15,13 @@
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
-/* 背景モード */
+/* 1. サイバーモード (STANDBY / PLAYLIST) */
 body.mode-standby, body.mode-playlist { background: #000; }
 body.mode-standby #background, body.mode-playlist #background { 
     background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
     background-size: 400% 400%; animation: bgMove 30s ease infinite; opacity: 0.4; 
 }
+/* 2. スモールワールドモード (SCHEDULE) */
 body.mode-schedule { background: #fdf5e6; }
 body.mode-schedule #background { 
     background: linear-gradient(135deg, #ffcce0 0%, #ccf2ff 50%, #e0ccff 100%);
@@ -189,6 +190,30 @@ setInterval(() => {
     items[currentEventIndex].classList.add('active');
 }, 5000);
 
+// 通常曲を今の時刻に合わせて再生（00分の時は必ず最初からにするロジックを内包）
+function playBaseVideoSynced() {
+    const now = new Date();
+    const mins = now.getMinutes();
+    const secs = now.getSeconds();
+    
+    let offsetSeconds = 0;
+    if (mins === 0) {
+        // 00分台なら0秒から再生
+        offsetSeconds = secs;
+    } else {
+        // それ以外は15分ごとのサイクルに同期
+        const baseMins = Math.floor(mins / 15) * 15;
+        offsetSeconds = ((mins - baseMins) * 60) + secs;
+    }
+    
+    player.loadVideoById({
+        videoId: BASE_VIDEO_ID,
+        startSeconds: offsetSeconds
+    });
+    if(MODE === "standby") player.mute(); else player.unMute();
+    player.playVideo();
+}
+
 setInterval(() => {
     const now = new Date();
     const mins = now.getMinutes();
@@ -235,8 +260,7 @@ function onYouTubeIframeAPIReady() {
         events: { 'onStateChange': (e) => { 
             if (e.data === YT.PlayerState.ENDED && MODE === "schedule") {
                 stopKarakuri();
-                player.loadVideoById(BASE_VIDEO_ID);
-                setTimeout(() => player.playVideo(), 1000);
+                playBaseVideoSynced();
             } 
         } }
     }); 
@@ -245,17 +269,19 @@ function onYouTubeIframeAPIReady() {
 function startSystem() {
     if (activated) return; activated = true;
     document.getElementById("tapNotice").style.display = "none";
-    player.loadVideoById(BASE_VIDEO_ID);
-    setTimeout(() => { if(MODE === "standby") player.mute(); else player.unMute(); player.playVideo(); updateStatus(); }, 1000);
+    playBaseVideoSynced();
+    setTimeout(() => { updateStatus(); }, 1000);
     if (gapiInited && gisInited) handleAuth();
 }
 
 function toggleMode(direction) {
     const MODES = ["standby", "schedule", "playlist"];
     MODE = MODES[(MODES.indexOf(MODE) + direction + 3) % 3];
-    if (MODE === "standby") { player.loadVideoById(BASE_VIDEO_ID); player.mute(); }
-    else if (MODE === "schedule") { player.loadVideoById(BASE_VIDEO_ID); player.unMute(); }
-    else { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
+    if (MODE === "playlist") {
+        player.loadPlaylist({list: PLAYLIST_ID}); player.unMute();
+    } else {
+        playBaseVideoSynced();
+    }
     updateStatus(); listUpcomingEvents();
 }
 
