@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber Clock - Minute Signal Edition</title>
+<title>Cyber & World Clock - Restore Complete</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Share Tech Mono', monospace; background: #000; transition: background 1.5s; }
 #background { position: fixed; top:0; left:0; width: 100%; height: 100%; z-index: -1; transition: all 1.5s; }
 
-/* 背景モード定義 */
+/* 背景モード定義 (色を完全復元) */
 body.mode-standby, body.mode-playlist, body.mode-pixar, body.mode-chill_pop { background: #000; }
 body.mode-standby #background, body.mode-playlist #background, body.mode-pixar #background, body.mode-chill_pop #background { 
     background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #050505); 
@@ -28,17 +28,23 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- 流れ星演出 (毎分00秒の分報制御) --- */
+/* --- 初期型流れ星演出 (復元版) --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-.star { position: absolute; background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0)); height: 2px; filter: drop-shadow(0 0 10px #fff); opacity: 0; }
-@keyframes shoot {
-    0% { transform: translateX(0) translateY(0) rotate(var(--angle)); opacity: 0; width: 0; }
-    15% { opacity: 1; width: 200px; }
-    85% { opacity: 1; }
-    100% { transform: translateX(var(--distX)) translateY(var(--distY)) rotate(var(--angle)); opacity: 0; width: 0; }
+.star {
+    position: absolute;
+    width: 2px;
+    height: 100px;
+    background: linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%);
+    filter: drop-shadow(0 0 10px white);
+    opacity: 0;
+}
+@keyframes shooting {
+    0% { transform: translate(0, 0) rotate(-45deg); opacity: 0; }
+    10% { opacity: 1; }
+    100% { transform: translate(-600px, 600px) rotate(-45deg); opacity: 0; }
 }
 
-/* --- 中央：時計 --- */
+/* --- 中央：時計 (最前面 z-index: 250) --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -47,7 +53,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり演出 --- */
+/* --- からくり時計演出 (z-index: 200) --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -77,6 +83,9 @@ body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode
 .event-item.active { opacity: 1; transform: translateY(0); }
 body.mode-schedule .event-item { color: #6a5acd; border-right-color: #db7093; }
 body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .event-item, body.mode-chill_pop .event-item { color: #ffffff; border-right-color: #00fff2; }
+.event-date-tag { font-size: 0.6em; margin-right: 8px; border: 1px solid; padding: 1px 4px; vertical-align: middle; }
+body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
+body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
 #status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
@@ -158,26 +167,20 @@ let currentEventIndex = 0;
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
 
-// 分報流れ星生成 (3本同時)
+// 分報流れ星演出 (初期型再現)
 function shootMinuteStars() {
     if (MODE === "schedule") return;
+    const container = document.getElementById('stars-container');
     for (let i = 0; i < 3; i++) {
         setTimeout(() => {
-            const container = document.getElementById('stars-container');
             const star = document.createElement('div');
             star.className = 'star';
-            const startX = Math.random() * window.innerWidth;
-            const startY = Math.random() * (window.innerHeight / 3);
-            const angle = 155 + (Math.random() * 20);
-            const dist = 700 + Math.random() * 500;
-            const distX = Math.cos(angle * Math.PI / 180) * dist;
-            const distY = Math.sin(angle * Math.PI / 180) * dist;
-            star.style.left = startX + 'px'; star.style.top = startY + 'px';
-            star.style.setProperty('--angle', angle + 'deg');
-            star.style.setProperty('--distX', distX + 'px'); star.style.setProperty('--distY', distY + 'px');
-            star.style.animation = `shoot ${2 + Math.random()}s linear forwards`;
-            container.appendChild(star); setTimeout(() => star.remove(), 3000);
-        }, i * 200); // わずかにずらして出現
+            star.style.right = (Math.random() * 50) + '%';
+            star.style.top = (Math.random() * 20) + '%';
+            star.style.animation = 'shooting 1.5s ease-out forwards';
+            container.appendChild(star);
+            setTimeout(() => star.remove(), 2000);
+        }, i * 400);
     }
 }
 
@@ -232,7 +235,6 @@ setInterval(() => {
     document.getElementById("clock").textContent = now.toTimeString().split(' ')[0];
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
-    // 【毎分00秒】流れ星を3本流す
     if (secs === 0) { shootMinuteStars(); }
 
     if (activated && MODE === "schedule") {
