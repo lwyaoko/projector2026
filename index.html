@@ -28,7 +28,7 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- ニュースモード専用レイアウト (トレインビジョン風) --- */
+/* --- ニュースモード専用レイアウト --- */
 #news-screen { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     display: none; grid-template-columns: 60% 40%; grid-template-rows: 1fr 120px;
@@ -40,7 +40,7 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 40s linear infinite; padding-left: 100%; display: inline-block; }
+#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
 /* ニュース中のミニ時計 */
@@ -52,12 +52,9 @@ body.mode-news #status { background: #0056b3; color: #fff; border: none; box-sha
 /* --- サイバー流れ星 --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 .cyber-star {
-    position: absolute;
-    width: 150px;
-    height: 1px;
+    position: absolute; width: 150px; height: 1px;
     background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,255,242,0.8) 50%, rgba(255,255,255,0) 100%);
-    filter: drop-shadow(0 0 5px #00fff2);
-    opacity: 0;
+    filter: drop-shadow(0 0 5px #00fff2); opacity: 0;
 }
 @keyframes cyber-shoot {
     0% { transform: translate(0, 0) rotate(var(--angle)); opacity: 0; }
@@ -75,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 --- */
+/* --- からくり演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -87,16 +84,9 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 .stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
-#karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
-#karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
-#karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
-#karakuri-overlay.open .sun-bright { animation: pulse 3s ease-in-out infinite; }
-@keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
-@keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
 /* --- UI要素 --- */
-#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; }
+#calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; cursor: pointer; }
 #calendar-title { font-size: 0.9em; letter-spacing: 2px; border-bottom: 1px solid rgba(0, 255, 242, 0.3); margin-bottom: 10px; padding-bottom: 5px; }
 body.mode-schedule #calendar-title { color: #db7093; border-bottom-color: #db7093; }
 body.mode-standby #calendar-title, body.mode-playlist #calendar-title, body.mode-pixar #calendar-title, body.mode-chill_pop #calendar-title { color: #00fff2; }
@@ -158,9 +148,9 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 </div>
 
 <div id="status" onclick="handleStatusClick()">SYSTEM: START</div>
-<div id="calendar-container">
+<div id="calendar-container" onclick="handleCalendarClick()">
     <div id="calendar-title">UPCOMING</div>
-    <div id="calendar-list"></div>
+    <div id="calendar-list"><div class="event-item active">TAP TO LOGIN</div></div>
 </div>
 
 <div id="clock-container">
@@ -232,6 +222,7 @@ function shootMinuteStars() {
 }
 
 async function listUpcomingEvents() {
+    if (!gapi.client.getToken()) return;
     try {
         const response = await gapi.client.calendar.events.list({ 'calendarId': 'primary', 'timeMin': (new Date()).toISOString(), 'showDeleted': false, 'singleEvents': true, 'maxResults': 5, 'orderBy': 'startTime' });
         const list = document.getElementById("calendar-list");
@@ -243,13 +234,17 @@ async function listUpcomingEvents() {
             const end = new Date(event.end.dateTime || event.end.date);
             const dateStr = start.toDateString() === today.toDateString() ? "今日" : `${start.getMonth()+1}/${start.getDate()}`;
             let timeStr = event.start.dateTime ? `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}-${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}` : "終日";
-            return `<div class="event-item ${i===0?'active':''}">
+            return `<div class="event-item ${i === currentEventIndex ? 'active' : ''}">
                         <span class="event-date-tag">${dateStr}</span>
                         <span style="font-weight:bold;margin-right:8px;">${timeStr}</span>${event.summary}
                     </div>`;
         }).join('');
-        currentEventIndex = 0;
     } catch (e) {}
+}
+
+function handleCalendarClick() {
+    if (!activated) return;
+    if (gapiInited && gisInited) handleAuth();
 }
 
 function playBaseVideoSynced() {
@@ -327,21 +322,17 @@ function rotateNews() {
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像取得ロジックの改善 (猫を回避してニュースらしい画像を出す)
-    // タイトルから漢字のみを抜き出して検索ワードにする
     const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["city"];
-    const searchTag = kanjiWords.slice(0, 2).join(','); // 最初の2つの単語を組み合わせる
+    const searchTag = kanjiWords.slice(0, 2).join(',');
 
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
     
-    // 配信元を Unsplash 公式のパラメータ付きURLに変更 (猫を回避)
-    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},news,building&sig=${newsIndex}`;
+    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},building,news&sig=${Math.random()}`;
 
     setTimeout(() => { 
         imgEl.src = newImgUrl; 
         imgEl.style.opacity = 1; 
-        // エラー時のための代替画像
         imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
@@ -384,7 +375,7 @@ function startSystem() {
     document.getElementById("tapNotice").style.display = "none";
     requestWakeLock();
     playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
-    if (gapiInited && gisInited) handleAuth();
+    // 初期起動時のhandleAuthを削除。代わりに予定に「TAP TO LOGIN」と表示
 }
 
 function toggleMode(direction) {
@@ -392,7 +383,6 @@ function toggleMode(direction) {
     MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
     resetKarakuri();
     
-    // ニュースモード時は無音
     if (MODE === "news" || MODE === "standby") player.mute(); else player.unMute();
 
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
@@ -401,7 +391,8 @@ function toggleMode(direction) {
     else if (MODE === "news") { fetchNews(); fetchTransit(); playBaseVideoSynced(); }
     else playBaseVideoSynced();
     
-    updateStatus(); listUpcomingEvents();
+    updateStatus(); 
+    listUpcomingEvents();
 }
 
 function handleStatusClick() { if (!activated) startSystem(); else toggleMode(1); }
@@ -441,7 +432,9 @@ function handleAuth() {
     tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
 }
 
-document.body.addEventListener('click', () => { if(!activated) startSystem(); });
+document.body.addEventListener('click', (e) => { 
+    if(!activated) startSystem(); 
+});
 const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
 updateWeather(); setInterval(updateWeather, 900000);
 
