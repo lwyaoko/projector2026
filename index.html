@@ -66,7 +66,7 @@ body.mode-news #status { background: #0056b3; color: #fff; border: none; box-sha
     100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
 }
 
-/* --- 中央：時計 (最前面 z-index: 250) --- */
+/* --- 中央：時計 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -75,7 +75,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 (z-index: 200) --- */
+/* --- からくり時計演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -257,7 +257,7 @@ function playBaseVideoSynced() {
     const mins = now.getMinutes(); const secs = now.getSeconds();
     let offset = (mins === 0) ? secs : (((mins % 15) * 60) + secs);
     player.loadVideoById({ videoId: BASE_VIDEO_ID, startSeconds: offset });
-    if(MODE === "standby") player.mute(); else player.unMute();
+    if(MODE === "standby" || MODE === "news") player.mute(); else player.unMute();
     player.playVideo();
 }
 
@@ -299,7 +299,7 @@ async function fetchNews() {
         if (data.items) {
             const seenTitles = new Set();
             currentNews = data.items.filter(item => {
-                const clean = item.title.substring(0, 20);
+                const clean = item.title.substring(0, 15);
                 if (seenTitles.has(clean)) return false;
                 seenTitles.add(clean);
                 return true;
@@ -327,22 +327,15 @@ function rotateNews() {
     const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像検索用ワード抽出（カッコ内のワードや地名を優先的に取得）
-    const keywords = cleanTitle.match(/[一-龠]{2,}|[A-Z]{2,}/g) || ["world"];
-    const searchTag = keywords.join(',');
-
+    // 画像取得ロジックの改善: ニュース、建物、ITなどのキーワードでランダム性を高める
+    // 固有名詞が抜き出せない場合のデフォルトタグを具体化
+    const searchTag = cleanTitle.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, ' ').split(' ').filter(w => w.length > 1)[0] || "tokyo,city";
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
-    
-    // 猫画像を避けるため、UnsplashのAPIに変更
-    const newImgUrl = `https://images.unsplash.com/photo-1504711432869-0fd10786c13b?auto=format&fit=crop&w=1280&q=80`; // 予備画像
-    const dynamicImgUrl = `https://source.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)}`;
-
     setTimeout(() => { 
-        imgEl.src = dynamicImgUrl; 
+        // ニュースにふさわしい建物の風景やテクノロジー画像を優先
+        imgEl.src = `https://loremflickr.com/1280/720/${encodeURIComponent(searchTag)},building,news/all?lock=${Math.floor(Date.now()/10000)}`; 
         imgEl.style.opacity = 1; 
-        // もし画像読み込みに失敗したら、一般的なニュース画像を出す
-        imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
     newsIndex = (newsIndex + 1) % currentNews.length;
@@ -391,11 +384,18 @@ function toggleMode(direction) {
     const MODES = ["standby", "schedule", "playlist", "pixar", "chill_pop", "news"];
     MODE = MODES[(MODES.indexOf(MODE) + direction + 6) % 6];
     resetKarakuri();
-    if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); player.unMute(); }
+    
+    // モード切替時のミュート制御
+    if (MODE === "news") { player.mute(); }
+    else if (MODE === "standby") { player.mute(); }
+    else { player.unMute(); }
+
+    if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
     else if (MODE === "news") { fetchNews(); fetchTransit(); playBaseVideoSynced(); }
     else playBaseVideoSynced();
+    
     updateStatus(); listUpcomingEvents();
 }
 
