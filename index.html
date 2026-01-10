@@ -285,7 +285,7 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース & 運行情報機能 ---
+// --- ニュース & 運行情報機能 (ここを修正しました) ---
 async function fetchNews() {
     try {
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
@@ -307,13 +307,22 @@ async function fetchNews() {
 
 async function fetchTransit() {
     try {
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=https://transit.yahoo.co.jp/rss/train/kanto`);
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://transit.yahoo.co.jp/rss/train/kanto')}&t=${Date.now()}`);
         const data = await res.json();
-        if (data.items) {
-            const info = data.items.map(i => `【${i.title}】${i.description}`).join('　　');
-            document.getElementById("news-ticker").textContent = info + "　　" + info;
+        if (data.items && data.items.length > 0) {
+            const info = data.items.map(i => {
+                const title = i.title.replace('の運行情報', '');
+                return `【${title}】${i.description}`;
+            }).join('　　/　　');
+            const tickerEl = document.getElementById("news-ticker");
+            tickerEl.textContent = info + "　　　　" + info;
+            tickerEl.style.animationDuration = Math.max(60, info.length * 0.5) + "s";
+        } else {
+            document.getElementById("news-ticker").textContent = "首都圏の主要路線に目立った遅延情報はありません。平常通り運転しています。";
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Transit Error:", e);
+    }
 }
 
 function rotateNews() {
@@ -375,7 +384,6 @@ function startSystem() {
     document.getElementById("tapNotice").style.display = "none";
     requestWakeLock();
     playBaseVideoSynced(); setTimeout(() => updateStatus(), 1000);
-    // 初期起動時のhandleAuthを削除。代わりに予定に「TAP TO LOGIN」と表示
 }
 
 function toggleMode(direction) {
