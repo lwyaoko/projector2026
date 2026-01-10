@@ -305,13 +305,13 @@ async function fetchNews() {
 }
 
 // ----------------------------------------------------
-// 運行情報の取得 (修正: 正しいRSS URLを適用)
+// 運行情報の取得 (待機中バグ修正 & メッセージ明確化)
 // ----------------------------------------------------
 async function fetchTransit() {
     try {
-        // Yahoo!運行情報（関東）の正しいRSS URL
-        // https://transit.yahoo.co.jp/traininfo/rss/area/4.xml
+        // Yahoo!運行情報（関東）のRSS
         const rssUrl = encodeURIComponent('https://transit.yahoo.co.jp/traininfo/rss/area/4.xml');
+        // キャッシュバスターを追加して確実に最新を取得
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
         const data = await res.json();
         const tickerEl = document.getElementById("news-ticker");
@@ -326,22 +326,26 @@ async function fetchTransit() {
                     const title = i.title.replace('の運行情報', '');
                     return `【🚨 ${title}】${i.description}`;
                 });
+                const infoStr = displayItems.join('　　/　　');
+                tickerEl.textContent = infoStr + "　　[ 終 ]　　" + infoStr;
+                
+                // アニメーション速度調整
+                const duration = Math.max(40, infoStr.length * 0.4);
+                tickerEl.style.animationDuration = `${duration}s`;
             } else {
-                displayItems = ["現在、首都圏の主要路線に目立った遅延情報はありません。平常通り運転しています。"];
+                // itemsはあるが遅延情報ではない場合
+                tickerEl.textContent = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
+                tickerEl.style.animationDuration = "30s";
             }
-
-            const infoStr = displayItems.join('　　/　　');
-            tickerEl.textContent = infoStr + "　　[ 終 ]　　" + infoStr;
-            
-            // アニメーション速度調整
-            const duration = Math.max(40, infoStr.length * 0.4);
-            tickerEl.style.animationDuration = `${duration}s`;
         } else {
-            tickerEl.textContent = "運行情報のデータ取得を待機中...";
+            // データが空の場合（遅延なしとみなす）
+            tickerEl.textContent = "現在、取得された遅延情報はありません（平常通りの可能性があります）。";
+            tickerEl.style.animationDuration = "30s";
         }
     } catch (e) {
         console.error("Transit Error:", e);
-        document.getElementById("news-ticker").textContent = "運行情報の取得に失敗しました。";
+        // エラー時はメッセージを更新
+        document.getElementById("news-ticker").textContent = "運行情報の取得に失敗しました。再接続を試みます...";
     }
 }
 setInterval(fetchTransit, 300000);
