@@ -41,8 +41,7 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: flex-start; position: relative; overflow-y: auto; }
 #news-title { font-size: 2.8vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; flex-shrink: 0; }
 #news-pub-date { align-self: flex-end; font-size: 1.2vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; flex-shrink: 0; }
-/* 修正: 本文の改行を維持して表示 */
-#news-desc { font-size: 1.7vw; line-height: 1.8; color: rgba(255,255,255,0.95); white-space: pre-wrap; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+#news-desc { font-size: 1.6vw; line-height: 1.8; color: rgba(255,255,255,0.95); white-space: pre-wrap; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
 
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
 #news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
@@ -308,7 +307,7 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// 日時フォーマット関数 (UTCをJSTに補正)
+// 日時フォーマット関数
 function formatPubDate(dateStr) {
     if (!dateStr) return "";
     let d;
@@ -321,13 +320,44 @@ function formatPubDate(dateStr) {
     return `${d.getDate()}日 ${d.getHours()}時 ${d.getMinutes()}分`;
 }
 
+// --- ウェザーニュース本文整形 ---
+function cleanWeatherNewsDescription(title, htmlContent) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    
+    // 画像抽出
+    const img = doc.querySelector('img');
+    const imageUrl = img ? img.src : null;
+    
+    let text = doc.body.textContent || "";
+
+    // タイトル削除 (タイトルに類似する冒頭部分を削除)
+    const cleanTitle = title.replace(/\s+/g, '');
+    const cleanTextStart = text.replace(/\s+/g, '').substring(0, cleanTitle.length + 20);
+    if (cleanTextStart.includes(cleanTitle)) {
+       text = text.substring(title.length).trim();
+    }
+    // 署名・日時削除
+    text = text.replace(/（ウェザーニュース）|[（(]ウェザーニュース[)）]/g, '');
+    text = text.replace(/ウェザーニュース/g, '');
+    text = text.replace(/\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2}/g, '');
+    text = text.replace(/- Weather News/g, '');
+    text = text.replace(/^\s*-\s*/, '');
+
+    // ポイント箇条書きの整形
+    text = text.replace(/【 ?天気のポイント ?】/g, '\n\n【 天気のポイント 】\n');
+    text = text.trim();
+
+    return { text, imageUrl };
+}
+
 // --- データ取得ロジック ---
 async function fetchNews() {
     if (currentNews.length > 0) return; 
     const nhkRss = [
-        "https://www.nhk.or.jp/rss/news/cat0.xml", // 主要
-        "https://www.nhk.or.jp/rss/news/cat2.xml", // 文化
-        "https://www.nhk.or.jp/rss/news/cat7.xml"  // スポーツ
+        "https://www.nhk.or.jp/rss/news/cat0.xml",
+        "https://www.nhk.or.jp/rss/news/cat2.xml",
+        "https://www.nhk.or.jp/rss/news/cat7.xml"
     ];
     try {
         nhkRss.forEach(url => {
@@ -339,6 +369,8 @@ async function fetchNews() {
                         if (!currentNews.find(n => n.title === item.title)) {
                             item.type = "news";
                             item.displayDate = formatPubDate(item.pubDate);
+                            // NHKは単純HTMLタグ削除でOK
+                            item.cleanDesc = item.description.replace(/<[^>]*>?/gm, '');
                             currentNews.push(item);
                         }
                     });
@@ -356,14 +388,16 @@ async function fetchWeatherAndQuake() {
         if (data.items) {
             weatherArticles = data.items.filter(item => {
                 const t = item.title;
-                // キーワード拡張: 服装/洗濯/今日/明日/週間
                 return t.includes("今日") || t.includes("きょう") || 
                        t.includes("明日") || t.includes("あす") || 
                        t.includes("週間") || t.includes("服装") || t.includes("洗濯");
             }).map(item => {
                 item.type = "weather";
                 item.displayDate = formatPubDate(item.pubDate);
-                item.imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
+                // 整形処理
+                const cleaned = cleanWeatherNewsDescription(item.title, item.description);
+                item.cleanDesc = cleaned.text;
+                item.imageUrl = cleaned.imageUrl || item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
                 return item;
             });
 
@@ -380,6 +414,11 @@ async function fetchWeatherAndQuake() {
                 quake.diffMin = diffMin;
                 quake.isQuake = true;
                 quake.displayDate = formatPubDate(quake.pubDate);
+                // 地震も整形処理を通す
+                const cleaned = cleanWeatherNewsDescription(quake.title, quake.description);
+                quake.cleanDesc = cleaned.text;
+                quake.imageUrl = cleaned.imageUrl || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
+                
                 quakeArticle = quake;
 
                 if (diffMin <= 10 && activated && !quakeInterruptionActive) {
@@ -401,13 +440,8 @@ function triggerQuakeInterruption() {
 
     titleEl.textContent = "【速報】" + quakeArticle.title;
     dateEl.textContent = quakeArticle.displayDate;
-    
-    // 地震情報は重要なので全文表示（ただしタグやゴミは消す）
-    let body = quakeArticle.description.replace(/<[^>]*>?/gm, '');
-    body = body.replace(/（ウェザーニュース）/g, '');
-    descEl.textContent = body;
-    
-    imgEl.src = quakeArticle.thumbnail || quakeArticle.enclosure?.link || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
+    descEl.textContent = quakeArticle.cleanDesc;
+    imgEl.src = quakeArticle.imageUrl;
     imgEl.style.opacity = 1;
 
     setTimeout(() => {
@@ -462,49 +496,13 @@ function rotateNews() {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
         
+        // 修正: 確実に cleanDesc を使う (地震も天気も)
         let bodyText = "";
-        
-        if (displayItem.isQuake) {
-            // 地震は全文（タグ削除のみ）
-            bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
-            bodyText = bodyText.replace(/（ウェザーニュース）/g, '');
-        } else if (displayItem.type === "weather") {
-            // --- ウェザーニュース整形ロジック ---
-            let raw = displayItem.description.replace(/<[^>]*>?/gm, '');
-            // タイトル重複削除
-            if (raw.startsWith(displayItem.title)) raw = raw.substring(displayItem.title.length);
-            // 署名・日時削除
-            raw = raw.replace(/（ウェザーニュース）|[（(]ウェザーニュース[)）]/g, '');
-            raw = raw.replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+\d{1,2}:\d{2}.*/g, '');
-            raw = raw.trim().replace(/^[\s\-]+/, '');
-
-            // 「天気のポイント」抽出
-            if (raw.includes("【 天気のポイント 】")) {
-                const parts = raw.split("【 天気のポイント 】");
-                const content = parts[1];
-                const lines = content.split('\n');
-                const points = lines.filter(l => l.trim().startsWith('・') || l.trim().startsWith('•'));
-                
-                if (points.length > 0) {
-                    bodyText = "【 天気のポイント 】\n" + points.join('\n');
-                } else {
-                    // 箇条書きがなければ空行まで
-                    bodyText = "【 天気のポイント 】" + content.split(/\n\s*\n/)[0];
-                }
-            } else {
-                // 服装・洗濯などは最初の「。」までを表示（短縮しすぎない）
-                const periodIndex = raw.indexOf("。");
-                if (periodIndex !== -1) {
-                    bodyText = raw.substring(0, periodIndex + 1);
-                } else {
-                    bodyText = raw;
-                }
-            }
-        } else {
-            // NHKニュースは全文（タグ削除のみ）
+        if (displayItem.cleanDesc) {
+            bodyText = displayItem.cleanDesc;
+        } else if (displayItem.description) {
             bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
         }
-        
         descEl.textContent = bodyText;
 
         imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
