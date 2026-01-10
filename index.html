@@ -49,16 +49,16 @@ body.mode-news #news-screen { display: grid; }
     background: #fff; 
     color: #000; 
     overflow: hidden; 
-    display: flex; /* Flexboxで時計とスクロールを横並び */
+    display: flex; 
     align-items: center; 
     border-top: 8px solid #0056b3; 
 }
 
 /* 左下の時計ボックス */
 #news-info-box {
-    background: #0056b3; /* 青色背景 */
+    background: #0056b3; 
     color: #fff;
-    width: 260px; /* 固定幅 */
+    width: 260px; 
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -344,14 +344,13 @@ function updateClock() {
     const timeStr = now.toTimeString().split(' ')[0];
     
     document.getElementById("clock").textContent = timeStr;
-    // ニュースモードの時計更新
+    
     const newsTimeEl = document.getElementById("news-time");
     if(newsTimeEl) newsTimeEl.textContent = timeStr;
     const newsDateEl = document.getElementById("news-date-display");
     const dayKanji = ["日", "月", "火", "水", "木", "金", "土"][now.getDay()];
     if(newsDateEl) newsDateEl.textContent = `${now.getMonth()+1}/${now.getDate()}(${dayKanji})`;
 
-    document.getElementById("mini-clock").textContent = timeStr;
     document.getElementById("date").textContent = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][now.getDay()]}`;
     
     if (secs === 0) { shootMinuteStars(); }
@@ -380,7 +379,6 @@ function cleanWeatherNewsDescription(title, htmlContent, isQuake) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
     
-    // 画像抽出
     const img = doc.querySelector('img');
     const imageUrl = img ? img.src : null;
     
@@ -417,7 +415,7 @@ function cleanWeatherNewsDescription(title, htmlContent, isQuake) {
             } else {
                 if (line.startsWith('【')) break;
                 output += "\n" + line; 
-                // 最初の段落（リーダー文）が終わったら終了
+                // リード文1段落までで切る
                 if (line.length > 20 && (line.endsWith('。') || line.endsWith('あります'))) {
                     break;
                 }
@@ -448,7 +446,7 @@ async function fetchNews() {
                         if (!currentNews.find(n => n.title === item.title)) {
                             item.type = "news";
                             item.displayDate = formatPubDate(item.pubDate);
-                            // NHK: 末尾の ... 削除
+                            // NHKの末尾...削除
                             let d = item.description.replace(/<[^>]*>?/gm, '');
                             d = d.replace(/\.\.\.$|…$/g, ''); 
                             item.cleanDesc = d;
@@ -575,7 +573,6 @@ function rotateNews() {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
         
-        // 修正: 確実に cleanDesc を使う
         let bodyText = "";
         if (displayItem.cleanDesc) {
             bodyText = displayItem.cleanDesc;
