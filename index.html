@@ -307,12 +307,9 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// 日時フォーマット関数 (UTC文字列を強制的に日本時間に補正して表示)
+// 日時フォーマット関数 (UTCをJSTに補正)
 function formatPubDate(dateStr) {
     if (!dateStr) return "";
-    // rss2jsonが返す "YYYY-MM-DD HH:mm:ss" はUTCだがTZ情報がないため、
-    // そのままnew Dateするとローカル時間扱いされて9時間ずれる。
-    // そのため、フォーマットをチェックして "T" と "Z" を付与し、強制的にUTCとして解釈させる。
     let d;
     if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
         d = new Date(dateStr.replace(' ', 'T') + 'Z');
@@ -321,8 +318,6 @@ function formatPubDate(dateStr) {
     }
     
     if (isNaN(d.getTime())) return "";
-    
-    // これで日本環境ならJSTで表示される
     return `${d.getDate()}日 ${d.getHours()}時 ${d.getMinutes()}分`;
 }
 
@@ -359,9 +354,13 @@ async function fetchWeatherAndQuake() {
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://weathernews.jp/ch/gunosy/article.rss')}&t=${Date.now()}`);
         const data = await res.json();
         if (data.items) {
-            weatherArticles = data.items.filter(item => 
-                item.title.includes("今日") || item.title.includes("明日") || item.title.includes("週間予報")
-            ).map(item => {
+            weatherArticles = data.items.filter(item => {
+                const t = item.title;
+                // ひらがな・漢字の「今日/明日」および「週間」を抽出
+                return t.includes("今日") || t.includes("きょう") || 
+                       t.includes("明日") || t.includes("あす") || 
+                       t.includes("週間");
+            }).map(item => {
                 item.type = "weather";
                 item.displayDate = formatPubDate(item.pubDate);
                 item.imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
@@ -370,16 +369,13 @@ async function fetchWeatherAndQuake() {
 
             const quake = data.items.find(item => item.title.includes("地震"));
             if (quake) {
-                // 地震発生時刻のチェック（UTCとしてパースして現在時刻と比較）
-                // rss2jsonのpubDate文字列を強制UTC解釈してDateオブジェクト生成
+                // 地震発生時刻のチェック
                 let qDateStr = quake.pubDate;
                 if (qDateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
                     qDateStr = qDateStr.replace(' ', 'T') + 'Z';
                 }
                 const qTime = new Date(qDateStr);
                 const now = new Date();
-                
-                // 差分計算 (分)
                 const diffMin = (now - qTime) / 1000 / 60;
                 
                 quake.diffMin = diffMin;
@@ -426,10 +422,14 @@ async function fetchWeatherAudio() {
 
 async function fetchWeatherTicker() {
     try {
-        const res = await fetch("https://weather.tsukumijima.net/api/forecast/city/130010");
-        const data = await res.json();
-        const forecast = data.forecasts.map(f => `${f.dateLabel}: ${f.telop}`).join(" / ");
-        weatherTickerText = `【東京 天気予報】${forecast}　　概況：${data.description.text.replace(/\n/g, "　")}`;
+        // 天気ティッカーもウェザーニュースRSSから生成
+        // すでにfetchWeatherAndQuakeで取得していればそれを使う
+        if (weatherArticles.length === 0) await fetchWeatherAndQuake();
+        
+        // 最新の予報記事を抽出
+        const latestWeather = weatherArticles.slice(0, 3).map(a => a.title).join(" / ");
+        
+        weatherTickerText = `【ウェザーニュース】${latestWeather || "情報を取得中..."}`;
         const ticker = document.getElementById("news-ticker");
         ticker.textContent = weatherTickerText + "　　" + weatherTickerText;
         ticker.style.animationDuration = Math.max(60, weatherTickerText.length * 0.4) + "s";
@@ -449,6 +449,7 @@ function rotateNews() {
 
     let displayItem = null;
 
+    // 地震情報 (12時間以内)
     if (quakeArticle && quakeArticle.diffMin <= 720 && newsIndex % 6 === 1) {
         displayItem = { 
             title: "【地震情報】" + quakeArticle.title, 
@@ -456,9 +457,13 @@ function rotateNews() {
             desc: quakeArticle.description.replace(/<[^>]*>?/gm, ''),
             img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE 
         };
-    } else if (newsIndex % 4 === 0 && weatherArticles.length > 0) {
+    } 
+    // 天気予報 (5回に1回程度)
+    else if (newsIndex % 5 === 0 && weatherArticles.length > 0) {
         displayItem = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
-    } else if (currentNews.length > 0) {
+    } 
+    // 通常ニュース
+    else if (currentNews.length > 0) {
         displayItem = currentNews[newsIndex % currentNews.length];
     }
 
@@ -467,16 +472,30 @@ function rotateNews() {
     setTimeout(() => {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
-        if(displayItem.desc) descEl.textContent = displayItem.desc;
+        
+        if(displayItem.description) {
+             descEl.textContent = displayItem.description.replace(/<[^>]*>?/gm, '');
+        } else if (displayItem.desc) {
+             descEl.textContent = displayItem.desc;
+        }
+
         imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
         imgEl.style.opacity = 1;
 
         if (displayItem.type === "weather") {
-            const isTomorrow = displayItem.title.includes("明日");
-            const audio = weatherAudioList.find(a => a.title.includes(isTomorrow ? "明日" : "今日"));
-            if (audio && audio.enclosure) {
-                weatherAudioPlayer.src = audio.enclosure.link;
-                weatherAudioPlayer.play().catch(() => {});
+            // 音声再生ロジック
+            const t = displayItem.title;
+            const isTomorrow = t.includes("明日") || t.includes("あす");
+            const isToday = t.includes("今日") || t.includes("きょう");
+            
+            // 週間予報の場合は音声を流さない(該当音声がないため)
+            if (!t.includes("週間") && (isToday || isTomorrow)) {
+                const keyword = isTomorrow ? ["明日", "あす"] : ["今日", "きょう"];
+                const audio = weatherAudioList.find(a => keyword.some(k => a.title.includes(k)));
+                if (audio && audio.enclosure) {
+                    weatherAudioPlayer.src = audio.enclosure.link;
+                    weatherAudioPlayer.play().catch(() => {});
+                }
             }
         }
     }, 500);
@@ -486,6 +505,7 @@ function rotateNews() {
 
 setInterval(() => { if(MODE === "news") rotateNews(); }, 15000);
 setInterval(fetchWeatherAndQuake, 180000);
+setInterval(fetchWeatherTicker, 300000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
