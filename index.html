@@ -38,10 +38,11 @@ body.mode-news #news-screen { display: grid; }
 #news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
 #news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.8s ease-in-out; }
 
-#news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
-#news-title { font-size: 3vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; }
-#news-pub-date { align-self: flex-end; font-size: 1.5vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; }
-#news-desc { font-size: 1.8vw; line-height: 1.6; color: rgba(255,255,255,0.9); overflow-y: hidden; max-height: 30vh; }
+#news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: flex-start; position: relative; overflow-y: auto; }
+#news-title { font-size: 2.8vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; flex-shrink: 0; }
+#news-pub-date { align-self: flex-end; font-size: 1.2vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; flex-shrink: 0; }
+/* 修正: 本文の改行を維持して表示 */
+#news-desc { font-size: 1.7vw; line-height: 1.8; color: rgba(255,255,255,0.95); white-space: pre-wrap; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
 
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
 #news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
@@ -355,7 +356,7 @@ async function fetchWeatherAndQuake() {
         if (data.items) {
             weatherArticles = data.items.filter(item => {
                 const t = item.title;
-                // 服装/洗濯/今日/明日/週間 のいずれかを含む
+                // キーワード拡張: 服装/洗濯/今日/明日/週間
                 return t.includes("今日") || t.includes("きょう") || 
                        t.includes("明日") || t.includes("あす") || 
                        t.includes("週間") || t.includes("服装") || t.includes("洗濯");
@@ -368,7 +369,6 @@ async function fetchWeatherAndQuake() {
 
             const quake = data.items.find(item => item.title.includes("地震"));
             if (quake) {
-                // 地震発生時刻のチェック
                 let qDateStr = quake.pubDate;
                 if (qDateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
                     qDateStr = qDateStr.replace(' ', 'T') + 'Z';
@@ -401,7 +401,12 @@ function triggerQuakeInterruption() {
 
     titleEl.textContent = "【速報】" + quakeArticle.title;
     dateEl.textContent = quakeArticle.displayDate;
-    descEl.textContent = quakeArticle.description.replace(/<[^>]*>?/gm, '');
+    
+    // 地震情報は重要なので全文表示（ただしタグやゴミは消す）
+    let body = quakeArticle.description.replace(/<[^>]*>?/gm, '');
+    body = body.replace(/（ウェザーニュース）/g, '');
+    descEl.textContent = body;
+    
     imgEl.src = quakeArticle.thumbnail || quakeArticle.enclosure?.link || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
     imgEl.style.opacity = 1;
 
@@ -421,12 +426,8 @@ async function fetchWeatherAudio() {
 
 async function fetchWeatherTicker() {
     try {
-        // 天気ティッカーもウェザーニュースRSSから生成
         if (weatherArticles.length === 0) await fetchWeatherAndQuake();
-        
-        // 最新の予報記事を抽出
         const latestWeather = weatherArticles.slice(0, 3).map(a => a.title).join(" / ");
-        
         weatherTickerText = `【ウェザーニュース】${latestWeather || "情報を取得中..."}`;
         const ticker = document.getElementById("news-ticker");
         ticker.textContent = weatherTickerText + "　　" + weatherTickerText;
@@ -448,13 +449,7 @@ function rotateNews() {
     let displayItem = null;
 
     if (quakeArticle && quakeArticle.diffMin <= 720 && newsIndex % 6 === 1) {
-        displayItem = { 
-            title: "【地震情報】" + quakeArticle.title, 
-            displayDate: quakeArticle.displayDate,
-            description: quakeArticle.description, // 地震はそのまま
-            img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE,
-            isQuake: true
-        };
+        displayItem = { ...quakeArticle, title: "【地震情報】" + quakeArticle.title };
     } else if (newsIndex % 4 === 0 && weatherArticles.length > 0) {
         displayItem = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
     } else if (currentNews.length > 0) {
@@ -467,38 +462,60 @@ function rotateNews() {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
         
-        // --- 修正箇所: 本文の整形 ---
         let bodyText = "";
+        
         if (displayItem.isQuake) {
+            // 地震は全文（タグ削除のみ）
             bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
-        } else if (displayItem.description) {
-            // 天気・ニュース用クリーニング
-            bodyText = displayItem.description.replace(/<[^>]*>?/gm, ''); // HTMLタグ除去
-            bodyText = bodyText.replace(displayItem.title, ''); // タイトル重複除去
-            bodyText = bodyText.replace(/ウェザーニュース/g, ''); // 署名除去
-            bodyText = bodyText.replace(/\d{4}.*?\d{1,2}:\d{2}/g, ''); // 日時除去
-            bodyText = bodyText.trim();
-            // 50文字程度でカット
-            if(bodyText.length > 55) bodyText = bodyText.substring(0, 55) + "...";
+            bodyText = bodyText.replace(/（ウェザーニュース）/g, '');
+        } else if (displayItem.type === "weather") {
+            // --- ウェザーニュース整形ロジック ---
+            let raw = displayItem.description.replace(/<[^>]*>?/gm, '');
+            // タイトル重複削除
+            if (raw.startsWith(displayItem.title)) raw = raw.substring(displayItem.title.length);
+            // 署名・日時削除
+            raw = raw.replace(/（ウェザーニュース）|[（(]ウェザーニュース[)）]/g, '');
+            raw = raw.replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+\d{1,2}:\d{2}.*/g, '');
+            raw = raw.trim().replace(/^[\s\-]+/, '');
+
+            // 「天気のポイント」抽出
+            if (raw.includes("【 天気のポイント 】")) {
+                const parts = raw.split("【 天気のポイント 】");
+                const content = parts[1];
+                const lines = content.split('\n');
+                const points = lines.filter(l => l.trim().startsWith('・') || l.trim().startsWith('•'));
+                
+                if (points.length > 0) {
+                    bodyText = "【 天気のポイント 】\n" + points.join('\n');
+                } else {
+                    // 箇条書きがなければ空行まで
+                    bodyText = "【 天気のポイント 】" + content.split(/\n\s*\n/)[0];
+                }
+            } else {
+                // 服装・洗濯などは最初の「。」までを表示（短縮しすぎない）
+                const periodIndex = raw.indexOf("。");
+                if (periodIndex !== -1) {
+                    bodyText = raw.substring(0, periodIndex + 1);
+                } else {
+                    bodyText = raw;
+                }
+            }
+        } else {
+            // NHKニュースは全文（タグ削除のみ）
+            bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
         }
+        
         descEl.textContent = bodyText;
 
-        // 画像
-        if (displayItem.type === "weather" || displayItem.isQuake) {
-             imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
-        } else {
-             imgEl.src = NHK_OGP_IMAGE; // ニュースは固定画像
-        }
+        imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
         imgEl.style.opacity = 1;
 
-        // 音声
         if (displayItem.type === "weather") {
             const t = displayItem.title;
             const isTomorrow = t.includes("明日") || t.includes("あす");
             const isToday = t.includes("今日") || t.includes("きょう");
             
-            // 週間/服装/洗濯などは音声がないためスキップ
-            if (!t.includes("週間") && (isToday || isTomorrow)) {
+            if (!t.includes("週間") && !t.includes("服装") && !t.includes("洗濯") && (isToday || isTomorrow)) {
                 const keyword = isTomorrow ? ["明日", "あす"] : ["今日", "きょう"];
                 const audio = weatherAudioList.find(a => keyword.some(k => a.title.includes(k)));
                 if (audio && audio.enclosure) {
