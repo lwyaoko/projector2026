@@ -28,7 +28,7 @@ body.mode-schedule #background {
 }
 @keyframes bgMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-/* --- ニュースモード専用レイアウト (追加) --- */
+/* --- ニュースモード専用レイアウト --- */
 #news-screen { 
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
     display: none; grid-template-columns: 60% 40%; grid-template-rows: 1fr 120px;
@@ -43,7 +43,7 @@ body.mode-news #news-screen { display: grid; }
 #news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
-/* ニュース中のミニ時計 (追加) */
+/* ニュース中のミニ時計 */
 #mini-clock { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; border-left: 5px solid #00fff2; z-index: 290; display: none; }
 body.mode-news #mini-clock { display: block; }
 body.mode-news #clock-container, body.mode-news #weather-section, body.mode-news #calendar-container { display: none; }
@@ -63,7 +63,7 @@ body.mode-news #status { background: #0056b3; color: #fff; border: none; box-sha
     100% { transform: translate(var(--moveX), var(--moveY)) rotate(var(--angle)); opacity: 0; }
 }
 
-/* --- 中央：時計 (最前面 z-index: 250) --- */
+/* --- 中央：時計 --- */
 #clock-container { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 250; width: 100%; pointer-events: none; }
 #clock { font-size: 14vw; letter-spacing: 0.05em; line-height: 1; }
 #date { font-size: 2.5vw; letter-spacing: 0.3em; margin-bottom: 5px; }
@@ -72,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり時計演出 (z-index: 200) --- */
+/* --- からくり演出 (修正版: アニメーション完全復元) --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -84,6 +84,8 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 .stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
+
+/* 修正箇所：アニメーション定義の追加 */
 #karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
 #karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
 #karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
@@ -91,6 +93,7 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 @keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
 @keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
 
 /* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; cursor: pointer; }
@@ -106,7 +109,7 @@ body.mode-standby .event-item, body.mode-playlist .event-item, body.mode-pixar .
 body.mode-standby .event-date-tag, body.mode-playlist .event-date-tag, body.mode-pixar .event-date-tag, body.mode-chill_pop .event-date-tag { color: #ff00ff; border-color: #ff00ff; }
 body.mode-schedule .event-date-tag { color: #db7093; border-color: #db7093; }
 
-#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 100; cursor: pointer; text-transform: uppercase; }
+#status { position: absolute; top: 5%; left: 5%; font-size: 1.2em; padding: 10px 15px; z-index: 300; cursor: pointer; text-transform: uppercase; }
 body.mode-schedule #status { color: #fff; background: #db7093; border-radius: 20px; box-shadow: 4px 4px 0px #ffcce0; }
 body.mode-standby #status, body.mode-playlist #status, body.mode-pixar #status, body.mode-chill_pop #status { color: #ff00ff; border-left: 3px solid #ff00ff; background: rgba(255, 0, 255, 0.05); }
 
@@ -293,10 +296,11 @@ function updateClock() {
 setInterval(updateClock, 1000);
 
 // ----------------------------------------------------
-// ニュース取得 (rss2jsonを使用)
+// ニュース・運行情報統合取得 (修正版: GoogleニュースRSS検索を使用)
 // ----------------------------------------------------
 async function fetchNews() {
     try {
+        // 通常のニュース: ロイター等
         const rssUrl = encodeURIComponent("https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja");
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
         const data = await res.json();
@@ -307,53 +311,58 @@ async function fetchNews() {
             rotateNews();
         }
     } catch (e) {
-        console.log("News fetch failed:", e);
+        console.log("News fetch error:", e);
     }
 }
 
-// ----------------------------------------------------
-// 運行情報の取得 (鉄道コム RSS + rss2json)
-// ----------------------------------------------------
 async function fetchTransit() {
     const tickerEl = document.getElementById("news-ticker");
     try {
-        const rssUrl = encodeURIComponent('https://www.tetsudo.com/traffic/rss.xml');
+        // 運行情報: 「関東 鉄道 遅延」でGoogleニュース検索をかける（最も確実）
+        // rss2jsonを使うことでCORS制限を回避し、JSONとして処理
+        const rssUrl = encodeURIComponent("https://news.google.com/rss/search?q=関東+鉄道+遅延+when:2d&hl=ja&gl=JP&ceid=JP:ja");
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
         const data = await res.json();
         
+        let displayItems = [];
+
         if (data.items && data.items.length > 0) {
-            const issues = data.items.filter(item => {
-                const title = item.title;
-                return title.includes("[関東]") || title.includes("山手線") || title.includes("中央線") || title.includes("京浜東北線") || title.includes("首都圏");
+            // ニュース記事から「遅延」「見合わせ」などを含むものを抽出
+            const delays = data.items.filter(item => {
+                const t = item.title;
+                return t.includes("遅延") || t.includes("見合") || t.includes("運休") || t.includes("停止");
             });
 
-            let displayText = "";
-            if (issues.length > 0) {
-                displayText = issues.map(item => {
-                    return `【🚨 ${item.title}】`;
-                }).join('　　/　　');
-            } else {
-                displayText = "現在、首都圏(関東エリア)の主要路線に目立った遅延情報はありません（平常通り）。";
+            if (delays.length > 0) {
+                displayItems = delays.map(d => `【🚨 ${d.title}】`);
             }
-
-            const fullText = displayText + "　　[ 終 ]　　" + displayText;
-            tickerEl.textContent = fullText;
-            tickerEl.style.animationDuration = `${Math.max(40, fullText.length * 0.4)}s`;
-        } else {
-            tickerEl.textContent = "運行情報のデータが取得できませんでした（一時的な混雑など）。";
         }
 
+        let fullText = "";
+        if (displayItems.length > 0) {
+            // 重複を削除して連結
+            const uniqueItems = [...new Set(displayItems)];
+            const infoStr = uniqueItems.join("　　/　　");
+            fullText = infoStr + "　　[ 終 ]　　" + infoStr;
+        } else {
+            fullText = "現在、首都圏の鉄道に関する目立った遅延ニュースはありません（平常通りの可能性があります）。";
+        }
+        
+        tickerEl.textContent = fullText;
+        tickerEl.style.animationDuration = `${Math.max(40, fullText.length * 0.4)}s`;
+
     } catch (e) {
-        console.error("Transit Fetch Error:", e);
-        tickerEl.textContent = "運行情報の更新に失敗しました。ネットワーク接続を確認してください。";
+        console.error("Transit Error:", e);
+        tickerEl.textContent = "運行情報の取得に失敗しました。";
     }
 }
 
-setInterval(fetchTransit, 300000); // 5分ごとに運行情報更新
+setInterval(fetchTransit, 300000); // 5分更新
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
+    // タイトル整形
     const cleanTitle = item.title.replace(/\s-\s.*$/, ""); 
     document.getElementById("news-title").textContent = cleanTitle;
     
@@ -363,6 +372,7 @@ function rotateNews() {
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
     
+    // 画像更新
     const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},city,news&sig=${Math.random()}`;
 
     setTimeout(() => { 
@@ -495,3 +505,4 @@ document.addEventListener("visibilitychange", () => {
 </script>
 </body>
 </html>
+
