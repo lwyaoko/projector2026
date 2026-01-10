@@ -285,7 +285,6 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース & 運行情報機能 (ここを修正しました) ---
 async function fetchNews() {
     try {
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
@@ -305,25 +304,49 @@ async function fetchNews() {
     } catch (e) {}
 }
 
+// ----------------------------------------------------
+// 運行情報の取得 (最新状況を反映する強化ロジック)
+// ----------------------------------------------------
 async function fetchTransit() {
     try {
+        // Yahoo!運行情報のRSSをプロキシ経由で取得（t=Date.nowでキャッシュ回避）
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://transit.yahoo.co.jp/rss/train/kanto')}&t=${Date.now()}`);
         const data = await res.json();
+        const tickerEl = document.getElementById("news-ticker");
+
         if (data.items && data.items.length > 0) {
-            const info = data.items.map(i => {
-                const title = i.title.replace('の運行情報', '');
-                return `【${title}】${i.description}`;
-            }).join('　　/　　');
-            const tickerEl = document.getElementById("news-ticker");
-            tickerEl.textContent = info + "　　　　" + info;
-            tickerEl.style.animationDuration = Math.max(60, info.length * 0.5) + "s";
+            // 平常運転以外の路線（遅延・運休など）を抽出
+            const issues = data.items.filter(i => !i.description.includes("平常通り"));
+            
+            let displayItems;
+            if (issues.length > 0) {
+                // 遅延がある場合は、その路線だけを並べる
+                displayItems = issues.map(i => {
+                    const title = i.title.replace('の運行情報', '');
+                    return `【！！遅延・事故！！】${title}：${i.description}`;
+                });
+            } else {
+                // 全て平常運転の場合
+                displayItems = ["現在、首都圏の主要路線に目立った遅延情報はありません。平常通り運転しています。"];
+            }
+
+            const infoStr = displayItems.join('　　/　　');
+            // テキストをループさせるために連結
+            tickerEl.textContent = infoStr + "　　[ 終 ]　　" + infoStr;
+            
+            // 文字数に合わせてスピードを調整
+            const duration = Math.max(40, infoStr.length * 0.4);
+            tickerEl.style.animationDuration = `${duration}s`;
         } else {
-            document.getElementById("news-ticker").textContent = "首都圏の主要路線に目立った遅延情報はありません。平常通り運転しています。";
+            tickerEl.textContent = "運行情報のデータ取得を待機中...";
         }
     } catch (e) {
         console.error("Transit Error:", e);
+        document.getElementById("news-ticker").textContent = "運行情報の取得に失敗しました。";
     }
 }
+// 5分ごとに運行情報を更新
+setInterval(fetchTransit, 300000);
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
