@@ -305,36 +305,35 @@ async function fetchNews() {
 }
 
 // ----------------------------------------------------
-// 運行情報の取得 (最新状況を反映する強化ロジック)
+// 運行情報の取得 (修正: 正しいRSS URLを適用)
 // ----------------------------------------------------
 async function fetchTransit() {
     try {
-        // Yahoo!運行情報のRSSをプロキシ経由で取得（t=Date.nowでキャッシュ回避）
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://transit.yahoo.co.jp/rss/train/kanto')}&t=${Date.now()}`);
+        // Yahoo!運行情報（関東）の正しいRSS URL
+        // https://transit.yahoo.co.jp/traininfo/rss/area/4.xml
+        const rssUrl = encodeURIComponent('https://transit.yahoo.co.jp/traininfo/rss/area/4.xml');
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
         const data = await res.json();
         const tickerEl = document.getElementById("news-ticker");
 
         if (data.items && data.items.length > 0) {
-            // 平常運転以外の路線（遅延・運休など）を抽出
-            const issues = data.items.filter(i => !i.description.includes("平常通り"));
+            // "平常通り" を含まない項目（＝遅延・トラブル情報）を抽出
+            const issues = data.items.filter(i => !i.description.includes("平常通り") && !i.title.includes("平常通り"));
             
             let displayItems;
             if (issues.length > 0) {
-                // 遅延がある場合は、その路線だけを並べる
                 displayItems = issues.map(i => {
                     const title = i.title.replace('の運行情報', '');
-                    return `【！！遅延・事故！！】${title}：${i.description}`;
+                    return `【🚨 ${title}】${i.description}`;
                 });
             } else {
-                // 全て平常運転の場合
                 displayItems = ["現在、首都圏の主要路線に目立った遅延情報はありません。平常通り運転しています。"];
             }
 
             const infoStr = displayItems.join('　　/　　');
-            // テキストをループさせるために連結
             tickerEl.textContent = infoStr + "　　[ 終 ]　　" + infoStr;
             
-            // 文字数に合わせてスピードを調整
+            // アニメーション速度調整
             const duration = Math.max(40, infoStr.length * 0.4);
             tickerEl.style.animationDuration = `${duration}s`;
         } else {
@@ -345,7 +344,6 @@ async function fetchTransit() {
         document.getElementById("news-ticker").textContent = "運行情報の取得に失敗しました。";
     }
 }
-// 5分ごとに運行情報を更新
 setInterval(fetchTransit, 300000);
 
 function rotateNews() {
