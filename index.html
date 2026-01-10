@@ -37,9 +37,12 @@ body.mode-schedule #background {
 body.mode-news #news-screen { display: grid; }
 #news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
 #news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.8s ease-in-out; }
-#news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
-#news-title { font-size: 3vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 20px; }
-#news-desc { font-size: 1.5vw; line-height: 1.6; color: rgba(255,255,255,0.8); }
+
+#news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+#news-title { font-size: 3vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; }
+#news-pub-date { align-self: flex-end; font-size: 1.5vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; }
+#news-desc { font-size: 1.5vw; line-height: 1.6; color: rgba(255,255,255,0.8); overflow-y: auto; }
+
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
 #news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
@@ -142,6 +145,7 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
     <div id="news-headline-area">
         <div id="news-title">WEATHER DATA LOADING...</div>
+        <div id="news-pub-date">--日 --時 --分</div>
         <div id="news-desc"></div>
     </div>
     <div id="news-ticker-area"><div id="news-ticker">東京 天気情報を取得中...</div></div>
@@ -303,6 +307,14 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
+// フォーマット関数: パブリッシュ日を 〇〇日〇時〇分 に変換
+function formatPubDate(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return `${d.getDate()}日 ${d.getHours()}時 ${d.getMinutes()}分`;
+}
+
 // --- データ取得ロジック ---
 async function fetchNews() {
     if (currentNews.length > 0) return; 
@@ -319,7 +331,8 @@ async function fetchNews() {
                 if (data.items) {
                     data.items.forEach(item => {
                         if (!currentNews.find(n => n.title === item.title)) {
-                            item.isSpecial = false;
+                            item.type = "news";
+                            item.displayDate = formatPubDate(item.pubDate);
                             currentNews.push(item);
                         }
                     });
@@ -335,16 +348,15 @@ async function fetchWeatherAndQuake() {
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://weathernews.jp/ch/gunosy/article.rss')}&t=${Date.now()}`);
         const data = await res.json();
         if (data.items) {
-            // 今日・明日・週間予報の抽出
             weatherArticles = data.items.filter(item => 
                 item.title.includes("今日") || item.title.includes("明日") || item.title.includes("週間予報")
             ).map(item => {
-                item.isWeather = true;
+                item.type = "weather";
+                item.displayDate = formatPubDate(item.pubDate);
                 item.imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
                 return item;
             });
 
-            // 地震情報の抽出
             const quake = data.items.find(item => item.title.includes("地震"));
             if (quake) {
                 const qTime = new Date(quake.pubDate);
@@ -352,9 +364,9 @@ async function fetchWeatherAndQuake() {
                 const diffMin = (now - qTime) / 1000 / 60;
                 quake.diffMin = diffMin;
                 quake.isQuake = true;
+                quake.displayDate = formatPubDate(quake.pubDate);
                 quakeArticle = quake;
 
-                // 10分以内の割り込み
                 if (diffMin <= 10 && activated && !quakeInterruptionActive) {
                     triggerQuakeInterruption();
                 }
@@ -365,14 +377,15 @@ async function fetchWeatherAndQuake() {
 
 function triggerQuakeInterruption() {
     quakeInterruptionActive = true;
-    const prevMode = MODE;
     if(MODE !== "news") switchModeDirectly("news");
 
     const titleEl = document.getElementById("news-title");
+    const dateEl = document.getElementById("news-pub-date");
     const descEl = document.getElementById("news-desc");
     const imgEl = document.getElementById("news-image");
 
     titleEl.textContent = "【速報】" + quakeArticle.title;
+    dateEl.textContent = quakeArticle.displayDate;
     descEl.textContent = quakeArticle.description.replace(/<[^>]*>?/gm, '');
     imgEl.src = quakeArticle.thumbnail || quakeArticle.enclosure?.link || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
     imgEl.style.opacity = 1;
@@ -380,7 +393,7 @@ function triggerQuakeInterruption() {
     setTimeout(() => {
         quakeInterruptionActive = false;
         if (MODE === "news") rotateNews();
-    }, 60000); // 1分間表示
+    }, 60000);
 }
 
 async function fetchWeatherAudio() {
@@ -407,6 +420,7 @@ function rotateNews() {
     if (MODE !== "news" || quakeInterruptionActive) return;
 
     const titleEl = document.getElementById("news-title");
+    const dateEl = document.getElementById("news-pub-date");
     const descEl = document.getElementById("news-desc");
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
@@ -415,16 +429,16 @@ function rotateNews() {
 
     let displayItem = null;
 
-    // 表示優先順位
     if (quakeArticle && quakeArticle.diffMin <= 720 && newsIndex % 6 === 1) {
         displayItem = { 
             title: "【地震情報】" + quakeArticle.title, 
+            displayDate: quakeArticle.displayDate,
             desc: quakeArticle.description.replace(/<[^>]*>?/gm, ''),
             img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE 
         };
     } else if (newsIndex % 4 === 0 && weatherArticles.length > 0) {
         displayItem = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
-    } else {
+    } else if (currentNews.length > 0) {
         displayItem = currentNews[newsIndex % currentNews.length];
     }
 
@@ -432,11 +446,12 @@ function rotateNews() {
 
     setTimeout(() => {
         titleEl.textContent = displayItem.title;
+        dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
         if(displayItem.desc) descEl.textContent = displayItem.desc;
         imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
         imgEl.style.opacity = 1;
 
-        if (displayItem.isWeather) {
+        if (displayItem.type === "weather") {
             const isTomorrow = displayItem.title.includes("明日");
             const audio = weatherAudioList.find(a => a.title.includes(isTomorrow ? "明日" : "今日"));
             if (audio && audio.enclosure) {
@@ -450,7 +465,7 @@ function rotateNews() {
 }
 
 setInterval(() => { if(MODE === "news") rotateNews(); }, 15000);
-setInterval(fetchWeatherAndQuake, 180000); // 3分毎
+setInterval(fetchWeatherAndQuake, 180000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
