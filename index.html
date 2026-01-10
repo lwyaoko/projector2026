@@ -41,7 +41,7 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
 #news-title { font-size: 3vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 10px; }
 #news-pub-date { align-self: flex-end; font-size: 1.5vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; }
-#news-desc { font-size: 1.5vw; line-height: 1.6; color: rgba(255,255,255,0.8); overflow-y: auto; }
+#news-desc { font-size: 1.8vw; line-height: 1.6; color: rgba(255,255,255,0.9); overflow-y: hidden; max-height: 30vh; }
 
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
 #news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
@@ -316,7 +316,6 @@ function formatPubDate(dateStr) {
     } else {
         d = new Date(dateStr);
     }
-    
     if (isNaN(d.getTime())) return "";
     return `${d.getDate()}日 ${d.getHours()}時 ${d.getMinutes()}分`;
 }
@@ -327,7 +326,7 @@ async function fetchNews() {
     const nhkRss = [
         "https://www.nhk.or.jp/rss/news/cat0.xml", // 主要
         "https://www.nhk.or.jp/rss/news/cat2.xml", // 文化
-        "https://www.nhk.or.jp/rss/news/cat7.xml"  // スポーツ (cat7修正)
+        "https://www.nhk.or.jp/rss/news/cat7.xml"  // スポーツ
     ];
     try {
         nhkRss.forEach(url => {
@@ -356,10 +355,10 @@ async function fetchWeatherAndQuake() {
         if (data.items) {
             weatherArticles = data.items.filter(item => {
                 const t = item.title;
-                // ひらがな・漢字の「今日/明日/週間」を包括的に検索
+                // 服装/洗濯/今日/明日/週間 のいずれかを含む
                 return t.includes("今日") || t.includes("きょう") || 
                        t.includes("明日") || t.includes("あす") || 
-                       t.includes("週間");
+                       t.includes("週間") || t.includes("服装") || t.includes("洗濯");
             }).map(item => {
                 item.type = "weather";
                 item.displayDate = formatPubDate(item.pubDate);
@@ -452,8 +451,9 @@ function rotateNews() {
         displayItem = { 
             title: "【地震情報】" + quakeArticle.title, 
             displayDate: quakeArticle.displayDate,
-            desc: quakeArticle.description.replace(/<[^>]*>?/gm, ''),
-            img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE 
+            description: quakeArticle.description, // 地震はそのまま
+            img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE,
+            isQuake: true
         };
     } else if (newsIndex % 4 === 0 && weatherArticles.length > 0) {
         displayItem = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
@@ -467,21 +467,37 @@ function rotateNews() {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
         
-        if(displayItem.description) {
-             descEl.textContent = displayItem.description.replace(/<[^>]*>?/gm, '');
-        } else if (displayItem.desc) {
-             descEl.textContent = displayItem.desc;
+        // --- 修正箇所: 本文の整形 ---
+        let bodyText = "";
+        if (displayItem.isQuake) {
+            bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
+        } else if (displayItem.description) {
+            // 天気・ニュース用クリーニング
+            bodyText = displayItem.description.replace(/<[^>]*>?/gm, ''); // HTMLタグ除去
+            bodyText = bodyText.replace(displayItem.title, ''); // タイトル重複除去
+            bodyText = bodyText.replace(/ウェザーニュース/g, ''); // 署名除去
+            bodyText = bodyText.replace(/\d{4}.*?\d{1,2}:\d{2}/g, ''); // 日時除去
+            bodyText = bodyText.trim();
+            // 50文字程度でカット
+            if(bodyText.length > 55) bodyText = bodyText.substring(0, 55) + "...";
         }
+        descEl.textContent = bodyText;
 
-        imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
+        // 画像
+        if (displayItem.type === "weather" || displayItem.isQuake) {
+             imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
+        } else {
+             imgEl.src = NHK_OGP_IMAGE; // ニュースは固定画像
+        }
         imgEl.style.opacity = 1;
 
+        // 音声
         if (displayItem.type === "weather") {
             const t = displayItem.title;
             const isTomorrow = t.includes("明日") || t.includes("あす");
             const isToday = t.includes("今日") || t.includes("きょう");
             
-            // 週間予報の場合は音声を流さない
+            // 週間/服装/洗濯などは音声がないためスキップ
             if (!t.includes("週間") && (isToday || isTomorrow)) {
                 const keyword = isTomorrow ? ["明日", "あす"] : ["今日", "きょう"];
                 const audio = weatherAudioList.find(a => keyword.some(k => a.title.includes(k)));
