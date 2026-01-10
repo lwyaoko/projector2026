@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Transit & News Edition</title>
+<title>Cyber & World Clock - Non-Stop Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -72,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり演出 (修正版: アニメーション完全復元) --- */
+/* --- からくり演出 (完全復元) --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -85,7 +85,7 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
 
-/* 修正箇所：アニメーション定義の追加 */
+/* 復活: アニメーション定義 */
 #karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
 #karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
 #karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
@@ -296,56 +296,77 @@ function updateClock() {
 setInterval(updateClock, 1000);
 
 // ----------------------------------------------------
-// ニュース・運行情報統合取得 (修正版: GoogleニュースRSS検索を使用)
+// ニュース・運行情報 (強化版: AllOriginsプロキシ + 鉄道コム)
 // ----------------------------------------------------
 async function fetchNews() {
     try {
-        // 通常のニュース: ロイター等
-        const rssUrl = encodeURIComponent("https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja");
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
-        const data = await res.json();
+        // RSS2JSONではなくAllOriginsを使う（安定性向上）
+        const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
+        const json = await res.json();
         
-        if (data.items && data.items.length > 0) {
-            currentNews = data.items;
+        // XMLパース
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, "text/xml");
+        const items = doc.querySelectorAll('item');
+
+        if (items.length > 0) {
+            currentNews = Array.from(items).map(item => ({
+                title: item.querySelector('title').textContent,
+                link: item.querySelector('link').textContent
+            }));
             newsIndex = 0;
             rotateNews();
         }
-    } catch (e) {
-        console.log("News fetch error:", e);
-    }
+    } catch (e) { console.log("News Error:", e); }
 }
 
 async function fetchTransit() {
     const tickerEl = document.getElementById("news-ticker");
     try {
-        // 運行情報: 「関東 鉄道 遅延」でGoogleニュース検索をかける（最も確実）
-        // rss2jsonを使うことでCORS制限を回避し、JSONとして処理
-        const rssUrl = encodeURIComponent("https://news.google.com/rss/search?q=関東+鉄道+遅延+when:2d&hl=ja&gl=JP&ceid=JP:ja");
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
-        const data = await res.json();
+        // メイン: 鉄道コム (AllOrigins経由)
+        const rssUrl = 'https://www.tetsudo.com/traffic/rss.xml';
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
+        const json = await res.json();
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, "text/xml");
+        const items = doc.querySelectorAll('item');
         
         let displayItems = [];
 
-        if (data.items && data.items.length > 0) {
-            // ニュース記事から「遅延」「見合わせ」などを含むものを抽出
-            const delays = data.items.filter(item => {
-                const t = item.title;
-                return t.includes("遅延") || t.includes("見合") || t.includes("運休") || t.includes("停止");
+        // 1. 鉄道コムから関東の情報を抽出
+        if (items.length > 0) {
+            const issues = Array.from(items).filter(item => {
+                const t = item.querySelector('title').textContent;
+                return t.includes("[関東]") || t.includes("首都圏") || t.includes("山手") || t.includes("中央線") || t.includes("京浜東北");
             });
+            displayItems = issues.map(i => `【🚨 ${i.querySelector('title').textContent}】`);
+        }
 
-            if (delays.length > 0) {
-                displayItems = delays.map(d => `【🚨 ${d.title}】`);
-            }
+        // 2. もし鉄道コムで情報がなければ、Googleニュースで補完
+        if (displayItems.length === 0) {
+             const gNewsUrl = "https://news.google.com/rss/search?q=関東+鉄道+遅延+when:1d&hl=ja&gl=JP&ceid=JP:ja";
+             const gRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gNewsUrl)}`);
+             const gJson = await gRes.json();
+             const gDoc = parser.parseFromString(gJson.contents, "text/xml");
+             const gItems = gDoc.querySelectorAll('item');
+             
+             if(gItems.length > 0) {
+                // 遅延という言葉を含むものを抽出
+                const delays = Array.from(gItems).filter(i => i.querySelector('title').textContent.includes("遅延"));
+                if(delays.length > 0) {
+                    displayItems = delays.slice(0,3).map(i => `【⚠️ ${i.querySelector('title').textContent}】`);
+                }
+             }
         }
 
         let fullText = "";
         if (displayItems.length > 0) {
-            // 重複を削除して連結
-            const uniqueItems = [...new Set(displayItems)];
-            const infoStr = uniqueItems.join("　　/　　");
+            const infoStr = displayItems.join("　　/　　");
             fullText = infoStr + "　　[ 終 ]　　" + infoStr;
         } else {
-            fullText = "現在、首都圏の鉄道に関する目立った遅延ニュースはありません（平常通りの可能性があります）。";
+            fullText = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
         }
         
         tickerEl.textContent = fullText;
