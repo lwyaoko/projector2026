@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Fast News Edition</title>
+<title>Cyber & World Clock - Non-Stop Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -40,7 +40,7 @@ body.mode-news #news-screen { display: grid; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
-#news-ticker { white-space: nowrap; font-size: 2.5vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
+#news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
 /* ニュース中のミニ時計 */
@@ -139,8 +139,8 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 
 <div id="news-screen">
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
-    <div id="news-headline-area"><div id="news-title">読み込み中...</div></div>
-    <div id="news-ticker-area"><div id="news-ticker">運行情報を取得しています...</div></div>
+    <div id="news-headline-area"><div id="news-title">WEATHER DATA LOADING...</div></div>
+    <div id="news-ticker-area"><div id="news-ticker">東京 23区 天気情報を取得中...</div></div>
     <div id="mini-clock">00:00:00</div>
 </div>
 
@@ -200,7 +200,7 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 let currentNews = [], newsIndex = 0;
-let isNewsPlaying = false;
+let weatherTickerText = "";
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -294,143 +294,72 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// ----------------------------------------------------
-// ニュース取得 (NHK公式RSSを高速並列取得)
-// ----------------------------------------------------
+// --- ニュース取得: NHK指定3種並列 (続きから再生を維持) ---
 async function fetchNews() {
-    // データ保持：ニュースが既にあり、再生中なら取得しない
-    if (currentNews.length > 0) {
-        if (!isNewsPlaying && MODE === "news") rotateNews();
-        return;
-    }
+    if (currentNews.length > 0) return; 
 
-    // NHK公式RSS (rss2jsonで高速化)
-    // cat0:主要, cat2:文化・エンタメ(科学文化), cat6:スポーツ
-    const nhkUrls = [
-        "https://www.nhk.or.jp/rss/news/cat0.xml",
-        "https://www.nhk.or.jp/rss/news/cat2.xml",
-        "https://www.nhk.or.jp/rss/news/cat6.xml"
+    const nhkRss = [
+        "https://www.nhk.or.jp/rss/news/cat0.xml", // 主要
+        "https://www.nhk.or.jp/rss/news/cat2.xml", // 文化
+        "https://www.nhk.or.jp/rss/news/cat6.xml"  // スポーツ (cat7相当)
     ];
 
     try {
-        // 並列リクエスト
-        nhkUrls.forEach(url => {
+        nhkRss.forEach(url => {
             fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`)
             .then(res => res.json())
             .then(data => {
-                if (data.items && data.items.length > 0) {
-                    // 取得できたものから順次追加
+                if (data.items) {
                     data.items.forEach(item => {
-                        if (!currentNews.some(n => n.title === item.title)) {
+                        if (!currentNews.find(n => n.title === item.title)) {
                             currentNews.push(item);
                         }
                     });
-                    
-                    // 1つでも入ったら即表示開始 (待たない)
-                    if (currentNews.length > 0 && !isNewsPlaying && MODE === "news") {
-                        rotateNews();
-                    }
+                    if (MODE === "news" && newsIndex === 0) rotateNews();
                 }
-            })
-            .catch(e => console.log("Feed Error:", e));
+            });
         });
-
-    } catch (e) { console.log("Init Error:", e); }
+    } catch (e) {}
 }
 
-// ----------------------------------------------------
-// 運行情報取得 (鉄道コム + Google検索フォールバック)
-// ----------------------------------------------------
-async function fetchTransit() {
-    const tickerEl = document.getElementById("news-ticker");
+// --- 運行情報の代わりの天気予報 (ツクミジマAPI) ---
+async function fetchWeatherTicker() {
     try {
-        // メイン: 鉄道コム (rss2json経由で高速化)
-        const rssUrl = encodeURIComponent('https://www.tetsudo.com/traffic/rss.xml');
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
+        const res = await fetch("https://weather.tsukumijima.net/api/forecast/city/130010");
         const data = await res.json();
-        
-        let displayItems = [];
-
-        // 1. 鉄道コムから関東の情報を抽出
-        if (data.items && data.items.length > 0) {
-            const issues = data.items.filter(item => {
-                const t = item.title;
-                return t.includes("[関東]") || t.includes("首都圏") || t.includes("山手") || t.includes("中央線") || t.includes("京浜東北");
-            });
-            displayItems = issues.map(i => `【🚨 ${i.title}】`);
-        }
-
-        // 2. 情報がない場合、Googleニュース検索で補完 (AllOriginsで取得)
-        if (displayItems.length === 0) {
-             const gNewsUrl = "https://news.google.com/rss/search?q=関東+鉄道+遅延+when:1d&hl=ja&gl=JP&ceid=JP:ja";
-             const gRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gNewsUrl)}`);
-             const gJson = await gRes.json();
-             const parser = new DOMParser();
-             const gDoc = parser.parseFromString(gJson.contents, "text/xml");
-             const gItems = gDoc.querySelectorAll('item');
-             
-             if(gItems.length > 0) {
-                const delays = Array.from(gItems).filter(i => {
-                    const t = i.querySelector('title').textContent;
-                    return t.includes("遅延") || t.includes("見合わせ") || t.includes("運休");
-                });
-                if(delays.length > 0) {
-                    displayItems = delays.slice(0,3).map(i => `【⚠️ ${i.querySelector('title').textContent}】`);
-                }
-             }
-        }
-
-        let fullText = "";
-        if (displayItems.length > 0) {
-            const infoStr = displayItems.join("　　/　　");
-            fullText = infoStr + "　　[ 終 ]　　" + infoStr;
-        } else {
-            fullText = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
-        }
-        
-        tickerEl.textContent = fullText;
-        tickerEl.style.animationDuration = `${Math.max(40, fullText.length * 0.4)}s`;
-
+        const info = data.description.text.replace(/\n/g, "　");
+        const forecast = data.forecasts.map(f => `${f.dateLabel}: ${f.telop} (最高${f.temperature.max.celsius || "--"}度)`).join(" / ");
+        weatherTickerText = `【東京 23区 天気予報】${forecast}　　【概況】${info}`;
+        updateTicker();
     } catch (e) {
-        console.error("Transit Error:", e);
-        tickerEl.textContent = "運行情報の取得を待機中...";
+        weatherTickerText = "天気データの読み込みに失敗しました。";
     }
 }
 
-setInterval(fetchTransit, 300000); // 5分更新
+function updateTicker() {
+    const ticker = document.getElementById("news-ticker");
+    ticker.textContent = weatherTickerText + "　　　" + weatherTickerText;
+    const duration = Math.max(60, weatherTickerText.length * 0.4);
+    ticker.style.animationDuration = duration + "s";
+}
 
 function rotateNews() {
-    if (currentNews.length === 0 || MODE !== "news") {
-        isNewsPlaying = false;
-        return;
-    }
-    isNewsPlaying = true;
-
+    if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
-    const cleanTitle = item.title.replace(/\s-\s.*$/, ""); 
-    document.getElementById("news-title").textContent = cleanTitle;
+    document.getElementById("news-title").textContent = item.title;
     
-    // 画像更新（Unsplash）
-    const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["news"];
-    const searchTag = kanjiWords.slice(0, 2).join(',');
-    const imgEl = document.getElementById("news-image");
-    imgEl.style.opacity = 0;
-    
-    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},city,news&sig=${Math.random()}`;
-
-    setTimeout(() => { 
-        imgEl.src = newImgUrl; 
-        imgEl.style.opacity = 1; 
-        imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
+    const kanji = item.title.match(/[一-龠]{2,}/g) || ["news"];
+    const tag = kanji.slice(0, 2).join(',');
+    const img = document.getElementById("news-image");
+    img.style.opacity = 0;
+    setTimeout(() => {
+        img.src = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(tag)},building,news&sig=${Math.random()}`;
+        img.style.opacity = 1;
     }, 500);
 
-    // 次のインデックスへ (ループ)
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
-// 15秒ごとにニュース切り替え (停止中以外)
-setInterval(() => {
-    if(MODE === "news" && isNewsPlaying) rotateNews();
-}, 15000);
+setInterval(() => { if(MODE === "news") rotateNews(); }, 15000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -479,12 +408,7 @@ function toggleMode(direction) {
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
-    else if (MODE === "news") { 
-        // ニュースモード切り替え時、データがなければ取得、あれば続きから再生
-        fetchNews(); 
-        fetchTransit(); 
-        playBaseVideoSynced(); 
-    }
+    else if (MODE === "news") { fetchNews(); fetchWeatherTicker(); playBaseVideoSynced(); }
     else playBaseVideoSynced();
     
     updateStatus(); 
