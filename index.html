@@ -72,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり演出 --- */
+/* --- からくり演出 (修正版: アニメーション復元) --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -84,6 +84,16 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 .stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
+
+/* 復活させたアニメーション定義 */
+#karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
+#karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
+#karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
+#karakuri-overlay.open .sun-bright { animation: pulse 3s ease-in-out infinite; }
+@keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+@keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
 
 /* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; cursor: pointer; }
@@ -287,12 +297,10 @@ setInterval(updateClock, 1000);
 
 async function fetchNews() {
     try {
-        // RSS取得方法を変更（AllOriginsプロキシ経由）
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
         const json = await res.json();
         
-        // XMLをパース
         const parser = new DOMParser();
         const doc = parser.parseFromString(json.contents, "text/xml");
         const items = doc.querySelectorAll('item');
@@ -303,7 +311,6 @@ async function fetchNews() {
                 link: item.querySelector('link').textContent
             }));
             
-            // 重複除外
             const seen = new Set();
             currentNews = currentNews.filter(n => {
                 const clean = n.title.substring(0, 15);
@@ -318,46 +325,42 @@ async function fetchNews() {
 }
 
 // ----------------------------------------------------
-// 運行情報の取得 (強化版: プロキシ変更＆直接XML解析)
+// 運行情報の取得 (鉄道コム RSSを使用)
 // ----------------------------------------------------
 async function fetchTransit() {
     const tickerEl = document.getElementById("news-ticker");
     try {
-        // Yahoo!路線情報(関東)のRSS URL
-        const rssUrl = 'https://transit.yahoo.co.jp/traininfo/rss/area/4.xml';
+        // 鉄道コムのRSS URL (全国の運行情報が集約されている)
+        const rssUrl = 'https://www.tetsudo.com/traffic/rss.xml';
         
-        // rss2jsonではなく、AllOriginsプロキシを使ってXMLを直接取得する
-        // これにより、API制限やYahoo側のブロックを回避できる可能性が高まります
+        // AllOriginsプロキシでXMLを取得
         const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
         const json = await res.json();
         
         if (!json.contents) throw new Error("No Content");
 
-        // 取得したXML文字列をパースする
         const parser = new DOMParser();
         const doc = parser.parseFromString(json.contents, "text/xml");
         const items = doc.querySelectorAll('item');
 
         if (items.length > 0) {
-            // 平常通り以外の情報を抽出
+            // タイトルに [関東] を含む、または説明に首都圏の情報が含まれるものをフィルタリング
             const issues = Array.from(items).filter(item => {
-                const desc = item.querySelector('description').textContent;
                 const title = item.querySelector('title').textContent;
-                return !desc.includes("平常通り") && !title.includes("平常通り");
+                // [関東]タグ、または主要路線のキーワードチェック
+                return title.includes("[関東]") || title.includes("山手線") || title.includes("中央線") || title.includes("京浜東北線") || title.includes("首都圏");
             });
 
             let displayText = "";
             if (issues.length > 0) {
                 displayText = issues.map(item => {
-                    const title = item.querySelector('title').textContent.replace('の運行情報', '');
-                    const desc = item.querySelector('description').textContent;
-                    return `【🚨 ${title}】${desc}`;
+                    // タイトル自体が「[関東] ○○線 運転見合わせ」のようになっている
+                    return `【🚨 ${item.querySelector('title').textContent}】`;
                 }).join('　　/　　');
             } else {
-                displayText = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
+                displayText = "現在、首都圏(関東エリア)の主要路線に目立った遅延情報はありません（平常通り）。";
             }
 
-            // 表示更新
             const fullText = displayText + "　　[ 終 ]　　" + displayText;
             tickerEl.textContent = fullText;
             tickerEl.style.animationDuration = `${Math.max(40, fullText.length * 0.4)}s`;
@@ -367,8 +370,7 @@ async function fetchTransit() {
 
     } catch (e) {
         console.error("Transit Fetch Error:", e);
-        // 万が一YahooがダメならGoogleニュースの遅延情報を拾うフォールバック
-        tickerEl.textContent = "Yahoo!運行情報への接続に失敗しました。再試行中...";
+        // 万が一鉄道コムもダメならGoogleニュースの遅延情報を拾うフォールバック
         fetchTransitFallback(); 
     }
 }
@@ -383,10 +385,12 @@ async function fetchTransitFallback() {
         const doc = parser.parseFromString(json.contents, "text/xml");
         const items = doc.querySelectorAll('item');
         
+        const tickerEl = document.getElementById("news-ticker");
         if(items.length > 0) {
             const newsText = Array.from(items).slice(0, 5).map(i => `【NEWS】${i.querySelector('title').textContent}`).join('　　');
-            const tickerEl = document.getElementById("news-ticker");
             tickerEl.textContent = newsText + "　　" + newsText;
+        } else {
+            tickerEl.textContent = "現在、運行に関するニュースはありません。";
         }
     } catch(e) {}
 }
@@ -540,5 +544,3 @@ document.addEventListener("visibilitychange", () => {
 </script>
 </body>
 </html>
-</html>
-
