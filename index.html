@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
-<title>Cyber & World Clock - Non-Stop Edition</title>
+<title>Cyber & World Clock - Fast News Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -72,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり演出 (アニメーション完全維持) --- */
+/* --- からくり演出 --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -200,6 +200,7 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 let currentNews = [], newsIndex = 0;
+let isNewsPlaying = false;
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -294,48 +295,47 @@ function updateClock() {
 setInterval(updateClock, 1000);
 
 // ----------------------------------------------------
-// ニュース取得 (指定NHK RSS 3つを統合)
+// ニュース取得 (NHK公式RSSを高速並列取得)
 // ----------------------------------------------------
 async function fetchNews() {
-    if (currentNews.length > 0) return; // 既にデータがあれば再取得しない（続きから再生のため）
-    
-    const urls = [
-        "https://news.web.nhk/n-data/conf/na/rss/cat0.xml",
-        "https://news.web.nhk/n-data/conf/na/rss/cat2.xml",
-        "https://news.web.nhk/n-data/conf/na/rss/cat7.xml"
+    // データ保持：ニュースが既にあり、再生中なら取得しない
+    if (currentNews.length > 0) {
+        if (!isNewsPlaying && MODE === "news") rotateNews();
+        return;
+    }
+
+    // NHK公式RSS (rss2jsonで高速化)
+    // cat0:主要, cat2:文化・エンタメ(科学文化), cat6:スポーツ
+    const nhkUrls = [
+        "https://www.nhk.or.jp/rss/news/cat0.xml",
+        "https://www.nhk.or.jp/rss/news/cat2.xml",
+        "https://www.nhk.or.jp/rss/news/cat6.xml"
     ];
 
     try {
-        let allItems = [];
-        // AllOriginsを使って3つのRSSを並行取得
-        const promises = urls.map(u => fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(u)}&t=${Date.now()}`).then(r => r.json()));
-        const results = await Promise.all(promises);
-
-        const parser = new DOMParser();
-        for (const res of results) {
-            if (!res.contents) continue;
-            const doc = parser.parseFromString(res.contents, "text/xml");
-            const items = doc.querySelectorAll('item');
-            items.forEach(item => {
-                allItems.push({
-                    title: item.querySelector('title').textContent,
-                    link: item.querySelector('link') ? item.querySelector('link').textContent : ""
-                });
-            });
-        }
-
-        // 重複除去
-        const seen = new Set();
-        currentNews = allItems.filter(item => {
-            if (seen.has(item.title)) return false;
-            seen.add(item.title);
-            return true;
+        // 並列リクエスト
+        nhkUrls.forEach(url => {
+            fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.items && data.items.length > 0) {
+                    // 取得できたものから順次追加
+                    data.items.forEach(item => {
+                        if (!currentNews.some(n => n.title === item.title)) {
+                            currentNews.push(item);
+                        }
+                    });
+                    
+                    // 1つでも入ったら即表示開始 (待たない)
+                    if (currentNews.length > 0 && !isNewsPlaying && MODE === "news") {
+                        rotateNews();
+                    }
+                }
+            })
+            .catch(e => console.log("Feed Error:", e));
         });
 
-        if (currentNews.length > 0 && newsIndex === 0) {
-            rotateNews();
-        }
-    } catch (e) { console.log("News fetch error:", e); }
+    } catch (e) { console.log("Init Error:", e); }
 }
 
 // ----------------------------------------------------
@@ -344,31 +344,28 @@ async function fetchNews() {
 async function fetchTransit() {
     const tickerEl = document.getElementById("news-ticker");
     try {
-        // メイン: 鉄道コム (AllOrigins経由)
-        const rssUrl = 'https://www.tetsudo.com/traffic/rss.xml';
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
-        const json = await res.json();
-        
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(json.contents, "text/xml");
-        const items = doc.querySelectorAll('item');
+        // メイン: 鉄道コム (rss2json経由で高速化)
+        const rssUrl = encodeURIComponent('https://www.tetsudo.com/traffic/rss.xml');
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
+        const data = await res.json();
         
         let displayItems = [];
 
         // 1. 鉄道コムから関東の情報を抽出
-        if (items.length > 0) {
-            const issues = Array.from(items).filter(item => {
-                const t = item.querySelector('title').textContent;
+        if (data.items && data.items.length > 0) {
+            const issues = data.items.filter(item => {
+                const t = item.title;
                 return t.includes("[関東]") || t.includes("首都圏") || t.includes("山手") || t.includes("中央線") || t.includes("京浜東北");
             });
-            displayItems = issues.map(i => `【🚨 ${i.querySelector('title').textContent}】`);
+            displayItems = issues.map(i => `【🚨 ${i.title}】`);
         }
 
-        // 2. 情報がない場合、Googleニュース検索で補完
+        // 2. 情報がない場合、Googleニュース検索で補完 (AllOriginsで取得)
         if (displayItems.length === 0) {
              const gNewsUrl = "https://news.google.com/rss/search?q=関東+鉄道+遅延+when:1d&hl=ja&gl=JP&ceid=JP:ja";
              const gRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gNewsUrl)}`);
              const gJson = await gRes.json();
+             const parser = new DOMParser();
              const gDoc = parser.parseFromString(gJson.contents, "text/xml");
              const gItems = gDoc.querySelectorAll('item');
              
@@ -396,26 +393,30 @@ async function fetchTransit() {
 
     } catch (e) {
         console.error("Transit Error:", e);
-        tickerEl.textContent = "運行情報の取得に失敗しました。";
+        tickerEl.textContent = "運行情報の取得を待機中...";
     }
 }
 
 setInterval(fetchTransit, 300000); // 5分更新
 
 function rotateNews() {
-    if (currentNews.length === 0 || MODE !== "news") return;
-    
-    // ループ処理
+    if (currentNews.length === 0 || MODE !== "news") {
+        isNewsPlaying = false;
+        return;
+    }
+    isNewsPlaying = true;
+
     const item = currentNews[newsIndex];
-    const cleanTitle = item.title; 
+    const cleanTitle = item.title.replace(/\s-\s.*$/, ""); 
     document.getElementById("news-title").textContent = cleanTitle;
     
-    // 画像更新（簡易キーワード検索）
+    // 画像更新（Unsplash）
     const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["news"];
     const searchTag = kanjiWords.slice(0, 2).join(',');
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
-    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},news&sig=${Math.random()}`;
+    
+    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},city,news&sig=${Math.random()}`;
 
     setTimeout(() => { 
         imgEl.src = newImgUrl; 
@@ -423,10 +424,13 @@ function rotateNews() {
         imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
-    // インデックスを進める（最後までいったら0に戻る）
+    // 次のインデックスへ (ループ)
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
-setInterval(rotateNews, 15000);
+// 15秒ごとにニュース切り替え (停止中以外)
+setInterval(() => {
+    if(MODE === "news" && isNewsPlaying) rotateNews();
+}, 15000);
 
 function triggerPreAction() {
     const overlay = document.getElementById('karakuri-overlay');
@@ -476,7 +480,8 @@ function toggleMode(direction) {
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
     else if (MODE === "news") { 
-        fetchNews(); // ニュース取得（データがあればスキップされる）
+        // ニュースモード切り替え時、データがなければ取得、あれば続きから再生
+        fetchNews(); 
         fetchTransit(); 
         playBaseVideoSynced(); 
     }
