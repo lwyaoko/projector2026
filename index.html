@@ -325,9 +325,9 @@ function formatPubDate(dateStr) {
 async function fetchNews() {
     if (currentNews.length > 0) return; 
     const nhkRss = [
-        "https://www.nhk.or.jp/rss/news/cat0.xml",
-        "https://www.nhk.or.jp/rss/news/cat2.xml",
-        "https://www.nhk.or.jp/rss/news/cat6.xml"
+        "https://www.nhk.or.jp/rss/news/cat0.xml", // 主要
+        "https://www.nhk.or.jp/rss/news/cat2.xml", // 文化
+        "https://www.nhk.or.jp/rss/news/cat7.xml"  // スポーツ (cat7修正)
     ];
     try {
         nhkRss.forEach(url => {
@@ -356,7 +356,7 @@ async function fetchWeatherAndQuake() {
         if (data.items) {
             weatherArticles = data.items.filter(item => {
                 const t = item.title;
-                // ひらがな・漢字の「今日/明日」および「週間」を抽出
+                // ひらがな・漢字の「今日/明日/週間」を包括的に検索
                 return t.includes("今日") || t.includes("きょう") || 
                        t.includes("明日") || t.includes("あす") || 
                        t.includes("週間");
@@ -423,7 +423,6 @@ async function fetchWeatherAudio() {
 async function fetchWeatherTicker() {
     try {
         // 天気ティッカーもウェザーニュースRSSから生成
-        // すでにfetchWeatherAndQuakeで取得していればそれを使う
         if (weatherArticles.length === 0) await fetchWeatherAndQuake();
         
         // 最新の予報記事を抽出
@@ -449,7 +448,6 @@ function rotateNews() {
 
     let displayItem = null;
 
-    // 地震情報 (12時間以内)
     if (quakeArticle && quakeArticle.diffMin <= 720 && newsIndex % 6 === 1) {
         displayItem = { 
             title: "【地震情報】" + quakeArticle.title, 
@@ -457,13 +455,9 @@ function rotateNews() {
             desc: quakeArticle.description.replace(/<[^>]*>?/gm, ''),
             img: quakeArticle.thumbnail || quakeArticle.enclosure?.link || NHK_OGP_IMAGE 
         };
-    } 
-    // 天気予報 (5回に1回程度)
-    else if (newsIndex % 5 === 0 && weatherArticles.length > 0) {
+    } else if (newsIndex % 4 === 0 && weatherArticles.length > 0) {
         displayItem = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
-    } 
-    // 通常ニュース
-    else if (currentNews.length > 0) {
+    } else if (currentNews.length > 0) {
         displayItem = currentNews[newsIndex % currentNews.length];
     }
 
@@ -483,12 +477,11 @@ function rotateNews() {
         imgEl.style.opacity = 1;
 
         if (displayItem.type === "weather") {
-            // 音声再生ロジック
             const t = displayItem.title;
             const isTomorrow = t.includes("明日") || t.includes("あす");
             const isToday = t.includes("今日") || t.includes("きょう");
             
-            // 週間予報の場合は音声を流さない(該当音声がないため)
+            // 週間予報の場合は音声を流さない
             if (!t.includes("週間") && (isToday || isTomorrow)) {
                 const keyword = isTomorrow ? ["明日", "あす"] : ["今日", "きょう"];
                 const audio = weatherAudioList.find(a => keyword.some(k => a.title.includes(k)));
