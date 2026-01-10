@@ -36,7 +36,7 @@ body.mode-schedule #background {
 }
 body.mode-news #news-screen { display: grid; }
 #news-image-area { background: #000; position: relative; overflow: hidden; border-right: 4px solid #333; }
-#news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 1.5s ease-in-out; }
+#news-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.8s ease-in-out; }
 #news-headline-area { padding: 40px; background: linear-gradient(135deg, #002b55, #001122); display: flex; flex-direction: column; justify-content: center; }
 #news-title { font-size: 3.5vw; font-weight: bold; line-height: 1.4; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 #news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
@@ -193,6 +193,7 @@ const PLAYLIST_ID = "PLu2X5r9Wu8IgVxyUSBeXFJ-ZnBqdeBdsP";
 const PIXAR_VIDEO_ID = "ecAR5gVCRmE";
 const CHILL_POP_VIDEO_ID = "iaXE8pyRBM4";
 const PIXAR_TIMESTAMPS = [0, 296, 512, 775, 1136, 1413, 1654, 1907, 2280, 2573];
+const NHK_OGP_IMAGE = "https://news.web.nhk/assets/ogp/nhk-one-news.png";
 const LAT = 35.6895; const LON = 139.6917;
 
 let MODE = "standby", activated = false, player;
@@ -200,7 +201,9 @@ let tokenClient, gapiInited = false, gisInited = false;
 let currentEventIndex = 0;
 let wakeLock = null;
 let currentNews = [], newsIndex = 0;
+let weatherArticles = [], weatherAudioList = [];
 let weatherTickerText = "";
+let weatherAudioPlayer = new Audio();
 
 function gapiLoaded() { gapi.load('client', async () => { await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] }); gapiInited = true; }); }
 function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/calendar.readonly', callback: '' }); gisInited = true; }
@@ -294,16 +297,14 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// --- ニュース取得: NHK指定3種並列 (続きから再生を維持) ---
+// NHKニュース取得
 async function fetchNews() {
     if (currentNews.length > 0) return; 
-
     const nhkRss = [
-        "https://www.nhk.or.jp/rss/news/cat0.xml", // 主要
-        "https://www.nhk.or.jp/rss/news/cat2.xml", // 文化
-        "https://www.nhk.or.jp/rss/news/cat6.xml"  // スポーツ (cat7相当)
+        "https://www.nhk.or.jp/rss/news/cat0.xml",
+        "https://www.nhk.or.jp/rss/news/cat2.xml",
+        "https://www.nhk.or.jp/rss/news/cat6.xml"
     ];
-
     try {
         nhkRss.forEach(url => {
             fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&t=${Date.now()}`)
@@ -312,6 +313,7 @@ async function fetchNews() {
                 if (data.items) {
                     data.items.forEach(item => {
                         if (!currentNews.find(n => n.title === item.title)) {
+                            item.isWeather = false;
                             currentNews.push(item);
                         }
                     });
@@ -322,7 +324,37 @@ async function fetchNews() {
     } catch (e) {}
 }
 
-// --- 運行情報の代わりの天気予報 (ツクミジマAPI) ---
+// ウェザーニュース記事RSS取得 (今日・明日のみ)
+async function fetchWeatherArticles() {
+    try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://weathernews.jp/ch/gunosy/article.rss')}&t=${Date.now()}`);
+        const data = await res.json();
+        if (data.items) {
+            weatherArticles = data.items.filter(item => {
+                return item.title.includes("今日") || item.title.includes("明日");
+            }).map(item => {
+                item.isWeather = true;
+                // サムネイル画像抽出 (rss2jsonのenclosureやthumbnailから、なければデフォルト)
+                item.imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
+                return item;
+            });
+            // ニュースの合間にランダムに差し込む準備
+        }
+    } catch (e) {}
+}
+
+// ウェザーニュース音声RSS取得
+async function fetchWeatherAudio() {
+    try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://weathernews.jp/ch/google/audio.rss')}&t=${Date.now()}`);
+        const data = await res.json();
+        if (data.items) {
+            weatherAudioList = data.items;
+        }
+    } catch (e) {}
+}
+
+// 下部ティッカー用天気予報 (ツクミジマAPI)
 async function fetchWeatherTicker() {
     try {
         const res = await fetch("https://weather.tsukumijima.net/api/forecast/city/130010");
@@ -344,20 +376,47 @@ function updateTicker() {
 }
 
 function rotateNews() {
-    if (currentNews.length === 0 || MODE !== "news") return;
-    const item = currentNews[newsIndex];
-    document.getElementById("news-title").textContent = item.title;
-    
-    const kanji = item.title.match(/[一-龠]{2,}/g) || ["news"];
-    const tag = kanji.slice(0, 2).join(',');
-    const img = document.getElementById("news-image");
-    img.style.opacity = 0;
-    setTimeout(() => {
-        img.src = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(tag)},building,news&sig=${Math.random()}`;
-        img.style.opacity = 1;
-    }, 500);
+    if (MODE !== "news") return;
 
-    newsIndex = (newsIndex + 1) % currentNews.length;
+    let item;
+    // 5回に1回程度天気を挟む、またはニュースが一周したタイミング
+    if (newsIndex % 5 === 0 && weatherArticles.length > 0) {
+        item = weatherArticles[Math.floor(Math.random() * weatherArticles.length)];
+    } else {
+        item = currentNews[newsIndex % currentNews.length];
+        if (!item) return;
+    }
+
+    const titleEl = document.getElementById("news-title");
+    const imgEl = document.getElementById("news-image");
+    
+    titleEl.textContent = item.title;
+    imgEl.style.opacity = 0;
+
+    if (item.isWeather) {
+        // 天気表示モード
+        setTimeout(() => {
+            imgEl.src = item.imageUrl;
+            imgEl.style.opacity = 1;
+        }, 500);
+
+        // 音声再生
+        const isTomorrow = item.title.includes("明日");
+        const audioItem = weatherAudioList.find(a => a.title.includes(isTomorrow ? "明日" : "今日"));
+        if (audioItem && audioItem.enclosure && audioItem.enclosure.link) {
+            weatherAudioPlayer.src = audioItem.enclosure.link;
+            weatherAudioPlayer.play().catch(e => console.log("Audio play blocked"));
+        }
+    } else {
+        // 通常ニュースモード (画像固定)
+        setTimeout(() => {
+            imgEl.src = NHK_OGP_IMAGE;
+            imgEl.style.opacity = 1;
+        }, 500);
+        weatherAudioPlayer.pause();
+    }
+
+    newsIndex++;
 }
 setInterval(() => { if(MODE === "news") rotateNews(); }, 15000);
 
@@ -408,8 +467,17 @@ function toggleMode(direction) {
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
-    else if (MODE === "news") { fetchNews(); fetchWeatherTicker(); playBaseVideoSynced(); }
-    else playBaseVideoSynced();
+    else if (MODE === "news") { 
+        fetchNews(); 
+        fetchWeatherArticles();
+        fetchWeatherAudio();
+        fetchWeatherTicker(); 
+        playBaseVideoSynced(); 
+    }
+    else {
+        playBaseVideoSynced();
+        weatherAudioPlayer.pause();
+    }
     
     updateStatus(); 
     listUpcomingEvents();
