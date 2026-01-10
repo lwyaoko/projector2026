@@ -72,7 +72,7 @@ body.mode-standby #date, body.mode-playlist #date, body.mode-pixar #date, body.m
 body.mode-schedule #clock { color: #6a5acd; text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffcce0; }
 body.mode-schedule #date { color: #db7093; font-weight: bold; }
 
-/* --- からくり演出 (アニメーション完全復活) --- */
+/* --- からくり演出 (アニメーション完全維持) --- */
 #karakuri-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200; pointer-events: none; display: none; }
 .door { position: absolute; top: 0; width: 50%; height: 100%; background: #ccf2ff; border: 8px solid #fff; box-sizing: border-box; transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; font-size: 10vw; color: #fff; text-shadow: 4px 4px 0px #db7093; }
 .door-left { left: 0; transform: translateX(-100%); border-right: 4px solid #fff; }
@@ -85,7 +85,6 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 #karakuri-overlay.open .stage { opacity: 1; }
 .char { position: absolute; font-size: 10vw; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.1)); }
 
-/* 復活: アニメーション定義 */
 #karakuri-overlay.open .moon-face { animation: swing 3s ease-in-out infinite alternate; transform-origin: top center; }
 #karakuri-overlay.open .bear { animation: peek 4s ease-in-out infinite; }
 #karakuri-overlay.open .bear-right { animation: peek 4.5s ease-in-out infinite reverse; }
@@ -93,7 +92,6 @@ body.mode-schedule #date { color: #db7093; font-weight: bold; }
 @keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
 @keyframes peek { 0%, 100% { transform: translateY(22vh); } 50% { transform: translateY(0); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-
 
 /* --- UI要素 --- */
 #calendar-container { position: absolute; top: 5%; right: 5%; text-align: right; z-index: 100; width: 450px; height: 120px; overflow: hidden; cursor: pointer; }
@@ -296,31 +294,53 @@ function updateClock() {
 setInterval(updateClock, 1000);
 
 // ----------------------------------------------------
-// ニュース・運行情報 (強化版: AllOriginsプロキシ + 鉄道コム)
+// ニュース取得 (指定NHK RSS 3つを統合)
 // ----------------------------------------------------
 async function fetchNews() {
-    try {
-        // RSS2JSONではなくAllOriginsを使う（安定性向上）
-        const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
-        const json = await res.json();
-        
-        // XMLパース
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(json.contents, "text/xml");
-        const items = doc.querySelectorAll('item');
+    if (currentNews.length > 0) return; // 既にデータがあれば再取得しない（続きから再生のため）
+    
+    const urls = [
+        "https://news.web.nhk/n-data/conf/na/rss/cat0.xml",
+        "https://news.web.nhk/n-data/conf/na/rss/cat2.xml",
+        "https://news.web.nhk/n-data/conf/na/rss/cat7.xml"
+    ];
 
-        if (items.length > 0) {
-            currentNews = Array.from(items).map(item => ({
-                title: item.querySelector('title').textContent,
-                link: item.querySelector('link').textContent
-            }));
-            newsIndex = 0;
+    try {
+        let allItems = [];
+        // AllOriginsを使って3つのRSSを並行取得
+        const promises = urls.map(u => fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(u)}&t=${Date.now()}`).then(r => r.json()));
+        const results = await Promise.all(promises);
+
+        const parser = new DOMParser();
+        for (const res of results) {
+            if (!res.contents) continue;
+            const doc = parser.parseFromString(res.contents, "text/xml");
+            const items = doc.querySelectorAll('item');
+            items.forEach(item => {
+                allItems.push({
+                    title: item.querySelector('title').textContent,
+                    link: item.querySelector('link') ? item.querySelector('link').textContent : ""
+                });
+            });
+        }
+
+        // 重複除去
+        const seen = new Set();
+        currentNews = allItems.filter(item => {
+            if (seen.has(item.title)) return false;
+            seen.add(item.title);
+            return true;
+        });
+
+        if (currentNews.length > 0 && newsIndex === 0) {
             rotateNews();
         }
-    } catch (e) { console.log("News Error:", e); }
+    } catch (e) { console.log("News fetch error:", e); }
 }
 
+// ----------------------------------------------------
+// 運行情報取得 (鉄道コム + Google検索フォールバック)
+// ----------------------------------------------------
 async function fetchTransit() {
     const tickerEl = document.getElementById("news-ticker");
     try {
@@ -344,7 +364,7 @@ async function fetchTransit() {
             displayItems = issues.map(i => `【🚨 ${i.querySelector('title').textContent}】`);
         }
 
-        // 2. もし鉄道コムで情報がなければ、Googleニュースで補完
+        // 2. 情報がない場合、Googleニュース検索で補完
         if (displayItems.length === 0) {
              const gNewsUrl = "https://news.google.com/rss/search?q=関東+鉄道+遅延+when:1d&hl=ja&gl=JP&ceid=JP:ja";
              const gRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gNewsUrl)}`);
@@ -353,8 +373,10 @@ async function fetchTransit() {
              const gItems = gDoc.querySelectorAll('item');
              
              if(gItems.length > 0) {
-                // 遅延という言葉を含むものを抽出
-                const delays = Array.from(gItems).filter(i => i.querySelector('title').textContent.includes("遅延"));
+                const delays = Array.from(gItems).filter(i => {
+                    const t = i.querySelector('title').textContent;
+                    return t.includes("遅延") || t.includes("見合わせ") || t.includes("運休");
+                });
                 if(delays.length > 0) {
                     displayItems = delays.slice(0,3).map(i => `【⚠️ ${i.querySelector('title').textContent}】`);
                 }
@@ -382,19 +404,18 @@ setInterval(fetchTransit, 300000); // 5分更新
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
+    
+    // ループ処理
     const item = currentNews[newsIndex];
-    // タイトル整形
-    const cleanTitle = item.title.replace(/\s-\s.*$/, ""); 
+    const cleanTitle = item.title; 
     document.getElementById("news-title").textContent = cleanTitle;
     
+    // 画像更新（簡易キーワード検索）
     const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["news"];
     const searchTag = kanjiWords.slice(0, 2).join(',');
-
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
-    
-    // 画像更新
-    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},city,news&sig=${Math.random()}`;
+    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},news&sig=${Math.random()}`;
 
     setTimeout(() => { 
         imgEl.src = newImgUrl; 
@@ -402,6 +423,7 @@ function rotateNews() {
         imgEl.onerror = () => { imgEl.src = "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1280&q=80"; };
     }, 500);
 
+    // インデックスを進める（最後までいったら0に戻る）
     newsIndex = (newsIndex + 1) % currentNews.length;
 }
 setInterval(rotateNews, 15000);
@@ -453,7 +475,11 @@ function toggleMode(direction) {
     if (MODE === "playlist") { player.loadPlaylist({list: PLAYLIST_ID}); }
     else if (MODE === "pixar") playPixarRandom();
     else if (MODE === "chill_pop") playChillPopSynced();
-    else if (MODE === "news") { fetchNews(); fetchTransit(); playBaseVideoSynced(); }
+    else if (MODE === "news") { 
+        fetchNews(); // ニュース取得（データがあればスキップされる）
+        fetchTransit(); 
+        playBaseVideoSynced(); 
+    }
     else playBaseVideoSynced();
     
     updateStatus(); 
@@ -526,4 +552,3 @@ document.addEventListener("visibilitychange", () => {
 </script>
 </body>
 </html>
-
