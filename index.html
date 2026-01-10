@@ -287,15 +287,28 @@ setInterval(updateClock, 1000);
 
 async function fetchNews() {
     try {
+        // RSS取得方法を変更（AllOriginsプロキシ経由）
         const rssUrl = "https://news.google.com/rss/search?q=site:reuters.com&hl=ja&gl=JP&ceid=JP:ja";
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
-        const data = await res.json();
-        if (data.items) {
-            const seenTitles = new Set();
-            currentNews = data.items.filter(item => {
-                const clean = item.title.substring(0, 15);
-                if (seenTitles.has(clean)) return false;
-                seenTitles.add(clean);
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
+        const json = await res.json();
+        
+        // XMLをパース
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, "text/xml");
+        const items = doc.querySelectorAll('item');
+
+        if (items.length > 0) {
+            currentNews = Array.from(items).map(item => ({
+                title: item.querySelector('title').textContent,
+                link: item.querySelector('link').textContent
+            }));
+            
+            // 重複除外
+            const seen = new Set();
+            currentNews = currentNews.filter(n => {
+                const clean = n.title.substring(0, 15);
+                if(seen.has(clean)) return false;
+                seen.add(clean);
                 return true;
             });
             newsIndex = 0;
@@ -305,64 +318,97 @@ async function fetchNews() {
 }
 
 // ----------------------------------------------------
-// 運行情報の取得 (待機中バグ修正 & メッセージ明確化)
+// 運行情報の取得 (強化版: プロキシ変更＆直接XML解析)
 // ----------------------------------------------------
 async function fetchTransit() {
+    const tickerEl = document.getElementById("news-ticker");
     try {
-        // Yahoo!運行情報（関東）のRSS
-        const rssUrl = encodeURIComponent('https://transit.yahoo.co.jp/traininfo/rss/area/4.xml');
-        // キャッシュバスターを追加して確実に最新を取得
-        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}&t=${Date.now()}`);
-        const data = await res.json();
-        const tickerEl = document.getElementById("news-ticker");
+        // Yahoo!路線情報(関東)のRSS URL
+        const rssUrl = 'https://transit.yahoo.co.jp/traininfo/rss/area/4.xml';
+        
+        // rss2jsonではなく、AllOriginsプロキシを使ってXMLを直接取得する
+        // これにより、API制限やYahoo側のブロックを回避できる可能性が高まります
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}&t=${Date.now()}`);
+        const json = await res.json();
+        
+        if (!json.contents) throw new Error("No Content");
 
-        if (data.items && data.items.length > 0) {
-            // "平常通り" を含まない項目（＝遅延・トラブル情報）を抽出
-            const issues = data.items.filter(i => !i.description.includes("平常通り") && !i.title.includes("平常通り"));
-            
-            let displayItems;
+        // 取得したXML文字列をパースする
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, "text/xml");
+        const items = doc.querySelectorAll('item');
+
+        if (items.length > 0) {
+            // 平常通り以外の情報を抽出
+            const issues = Array.from(items).filter(item => {
+                const desc = item.querySelector('description').textContent;
+                const title = item.querySelector('title').textContent;
+                return !desc.includes("平常通り") && !title.includes("平常通り");
+            });
+
+            let displayText = "";
             if (issues.length > 0) {
-                displayItems = issues.map(i => {
-                    const title = i.title.replace('の運行情報', '');
-                    return `【🚨 ${title}】${i.description}`;
-                });
-                const infoStr = displayItems.join('　　/　　');
-                tickerEl.textContent = infoStr + "　　[ 終 ]　　" + infoStr;
-                
-                // アニメーション速度調整
-                const duration = Math.max(40, infoStr.length * 0.4);
-                tickerEl.style.animationDuration = `${duration}s`;
+                displayText = issues.map(item => {
+                    const title = item.querySelector('title').textContent.replace('の運行情報', '');
+                    const desc = item.querySelector('description').textContent;
+                    return `【🚨 ${title}】${desc}`;
+                }).join('　　/　　');
             } else {
-                // itemsはあるが遅延情報ではない場合
-                tickerEl.textContent = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
-                tickerEl.style.animationDuration = "30s";
+                displayText = "現在、首都圏の主要路線に目立った遅延情報はありません（平常通り）。";
             }
+
+            // 表示更新
+            const fullText = displayText + "　　[ 終 ]　　" + displayText;
+            tickerEl.textContent = fullText;
+            tickerEl.style.animationDuration = `${Math.max(40, fullText.length * 0.4)}s`;
         } else {
-            // データが空の場合（遅延なしとみなす）
-            tickerEl.textContent = "現在、取得された遅延情報はありません（平常通りの可能性があります）。";
-            tickerEl.style.animationDuration = "30s";
+            tickerEl.textContent = "運行情報のデータが空です（取得エラーの可能性があります）。";
         }
+
     } catch (e) {
-        console.error("Transit Error:", e);
-        // エラー時はメッセージを更新
-        document.getElementById("news-ticker").textContent = "運行情報の取得に失敗しました。再接続を試みます...";
+        console.error("Transit Fetch Error:", e);
+        // 万が一YahooがダメならGoogleニュースの遅延情報を拾うフォールバック
+        tickerEl.textContent = "Yahoo!運行情報への接続に失敗しました。再試行中...";
+        fetchTransitFallback(); 
     }
 }
-setInterval(fetchTransit, 300000);
+
+// フォールバック: Googleニュースで「首都圏 鉄道 遅延」を検索
+async function fetchTransitFallback() {
+    try {
+        const rssUrl = "https://news.google.com/rss/search?q=首都圏+鉄道+遅延+when:1d&hl=ja&gl=JP&ceid=JP:ja";
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`);
+        const json = await res.json();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, "text/xml");
+        const items = doc.querySelectorAll('item');
+        
+        if(items.length > 0) {
+            const newsText = Array.from(items).slice(0, 5).map(i => `【NEWS】${i.querySelector('title').textContent}`).join('　　');
+            const tickerEl = document.getElementById("news-ticker");
+            tickerEl.textContent = newsText + "　　" + newsText;
+        }
+    } catch(e) {}
+}
+
+setInterval(fetchTransit, 300000); // 5分更新
 
 function rotateNews() {
     if (currentNews.length === 0 || MODE !== "news") return;
     const item = currentNews[newsIndex];
-    const cleanTitle = item.title.replace(/\s-\sReuters\s*$/i, "").replace(/\s-\sGoogle\sニュース\s*$/i, "");
+    // Reutersなどを消去
+    const cleanTitle = item.title.replace(/\s-\s.*$/, ""); 
     document.getElementById("news-title").textContent = cleanTitle;
     
-    const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["city"];
+    // 簡易的な画像検索キーワード抽出
+    const kanjiWords = cleanTitle.match(/[一-龠]{2,}/g) || ["news"];
     const searchTag = kanjiWords.slice(0, 2).join(',');
 
     const imgEl = document.getElementById("news-image");
     imgEl.style.opacity = 0;
     
-    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},building,news&sig=${Math.random()}`;
+    // 画像更新
+    const newImgUrl = `https://images.unsplash.com/featured/1280x720?${encodeURIComponent(searchTag)},city,news&sig=${Math.random()}`;
 
     setTimeout(() => { 
         imgEl.src = newImgUrl; 
@@ -494,3 +540,5 @@ document.addEventListener("visibilitychange", () => {
 </script>
 </body>
 </html>
+</html>
+
