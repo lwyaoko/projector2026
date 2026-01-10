@@ -321,7 +321,7 @@ function formatPubDate(dateStr) {
 }
 
 // --- ウェザーニュース本文整形 ---
-function cleanWeatherNewsDescription(title, htmlContent) {
+function cleanWeatherNewsDescription(title, htmlContent, isQuake) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
     
@@ -329,34 +329,75 @@ function cleanWeatherNewsDescription(title, htmlContent) {
     const img = doc.querySelector('img');
     const imageUrl = img ? img.src : null;
     
+    // 改行を維持するためにbrを改行コードに置換
+    doc.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
     let text = doc.body.textContent || "";
 
-    // タイトル削除 (タイトルに類似する冒頭部分を削除)
+    // タイトル重複削除 (冒頭付近にある場合)
     const cleanTitle = title.replace(/\s+/g, '');
-    const cleanTextStart = text.replace(/\s+/g, '').substring(0, cleanTitle.length + 20);
-    if (cleanTextStart.includes(cleanTitle)) {
-       text = text.substring(title.length).trim();
+    if (text.replace(/\s+/g, '').startsWith(cleanTitle)) {
+         // タイトルの長さ分+αを削除トライ
+         if(text.indexOf(title) !== -1) {
+             text = text.substring(text.indexOf(title) + title.length);
+         } else {
+             // 完全一致しない場合は前方一致で探すなど簡易処理
+             text = text.substring(title.length); 
+         }
     }
+
     // 署名・日時削除
     text = text.replace(/（ウェザーニュース）|[（(]ウェザーニュース[)）]/g, '');
     text = text.replace(/ウェザーニュース/g, '');
-    text = text.replace(/\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2}/g, '');
+    text = text.replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s+\d{1,2}:\d{1,2}/g, '');
     text = text.replace(/- Weather News/g, '');
     text = text.replace(/^\s*-\s*/, '');
 
-    // ポイント箇条書きの整形
-    text = text.replace(/【 ?天気のポイント ?】/g, '\n\n【 天気のポイント 】\n');
     text = text.trim();
 
-    return { text, imageUrl };
+    // 天気予報の場合のみ、「天気のポイント」による区切り処理を行う
+    if (!isQuake && text.includes("【 天気のポイント 】")) {
+        const parts = text.split("【 天気のポイント 】");
+        let content = parts[1].trim();
+        
+        const lines = content.split('\n').map(l => l.trim()).filter(l => l);
+        let output = "【 天気のポイント 】\n";
+        
+        // ポイント箇条書き部分と、その直後のリード文（1段落分）を取得
+        let bodyStarted = false;
+        
+        for (let line of lines) {
+            if (line.startsWith('・') || line.startsWith('•')) {
+                output += line + "\n";
+            } else {
+                // ポイント箇条書きが終わった後の文章
+                if (line.startsWith('【')) break; // 次のセクション見出しが来たら終了
+                
+                output += "\n" + line; 
+                bodyStarted = true;
+                
+                // リード文の区切り判定（今回は改行ベースで1ブロック取得したら終了）
+                // ただし行が短すぎる場合は続く可能性があるので、ある程度の長さを見るか、
+                // あるいは「。」で終わっているかで判断
+                if (line.length > 20 && (line.endsWith('。') || line.endsWith('あります'))) {
+                    break;
+                }
+                
+                // 安全策: 文字数が多すぎたら強制終了
+                if (output.length > 400) break;
+            }
+        }
+        text = output;
+    }
+
+    return { text: text.trim(), imageUrl };
 }
 
 // --- データ取得ロジック ---
 async function fetchNews() {
     if (currentNews.length > 0) return; 
     const nhkRss = [
-        "https://www.nhk.or.jp/rss/news/cat0.xml",
-        "https://www.nhk.or.jp/rss/news/cat2.xml",
+        "https://www.nhk.or.jp/rss/news/cat0.xml", 
+        "https://www.nhk.or.jp/rss/news/cat2.xml", 
         "https://www.nhk.or.jp/rss/news/cat7.xml"
     ];
     try {
@@ -369,8 +410,10 @@ async function fetchNews() {
                         if (!currentNews.find(n => n.title === item.title)) {
                             item.type = "news";
                             item.displayDate = formatPubDate(item.pubDate);
-                            // NHKは単純HTMLタグ削除でOK
-                            item.cleanDesc = item.description.replace(/<[^>]*>?/gm, '');
+                            // NHKの末尾「...」削除
+                            let d = item.description.replace(/<[^>]*>?/gm, '');
+                            d = d.replace(/\.\.\.$|…$/g, ''); 
+                            item.cleanDesc = d;
                             currentNews.push(item);
                         }
                     });
@@ -394,8 +437,7 @@ async function fetchWeatherAndQuake() {
             }).map(item => {
                 item.type = "weather";
                 item.displayDate = formatPubDate(item.pubDate);
-                // 整形処理
-                const cleaned = cleanWeatherNewsDescription(item.title, item.description);
+                const cleaned = cleanWeatherNewsDescription(item.title, item.description, false);
                 item.cleanDesc = cleaned.text;
                 item.imageUrl = cleaned.imageUrl || item.thumbnail || (item.enclosure && item.enclosure.link) || NHK_OGP_IMAGE;
                 return item;
@@ -414,8 +456,8 @@ async function fetchWeatherAndQuake() {
                 quake.diffMin = diffMin;
                 quake.isQuake = true;
                 quake.displayDate = formatPubDate(quake.pubDate);
-                // 地震も整形処理を通す
-                const cleaned = cleanWeatherNewsDescription(quake.title, quake.description);
+                // 地震は全文表示（isQuake=true でポイント区切り無効化）
+                const cleaned = cleanWeatherNewsDescription(quake.title, quake.description, true);
                 quake.cleanDesc = cleaned.text;
                 quake.imageUrl = cleaned.imageUrl || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
                 
@@ -495,17 +537,9 @@ function rotateNews() {
     setTimeout(() => {
         titleEl.textContent = displayItem.title;
         dateEl.textContent = displayItem.displayDate || "--日 --時 --分";
+        descEl.textContent = displayItem.cleanDesc || "";
         
-        // 修正: 確実に cleanDesc を使う (地震も天気も)
-        let bodyText = "";
-        if (displayItem.cleanDesc) {
-            bodyText = displayItem.cleanDesc;
-        } else if (displayItem.description) {
-            bodyText = displayItem.description.replace(/<[^>]*>?/gm, '');
-        }
-        descEl.textContent = bodyText;
-
-        imgEl.src = displayItem.imageUrl || displayItem.img || NHK_OGP_IMAGE;
+        imgEl.src = displayItem.imageUrl || NHK_OGP_IMAGE;
         imgEl.style.opacity = 1;
 
         if (displayItem.type === "weather") {
