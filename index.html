@@ -307,11 +307,22 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 
-// フォーマット関数: パブリッシュ日を 〇〇日〇時〇分 に変換
+// 日時フォーマット関数 (UTC文字列を強制的に日本時間に補正して表示)
 function formatPubDate(dateStr) {
     if (!dateStr) return "";
-    const d = new Date(dateStr);
+    // rss2jsonが返す "YYYY-MM-DD HH:mm:ss" はUTCだがTZ情報がないため、
+    // そのままnew Dateするとローカル時間扱いされて9時間ずれる。
+    // そのため、フォーマットをチェックして "T" と "Z" を付与し、強制的にUTCとして解釈させる。
+    let d;
+    if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+        d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    } else {
+        d = new Date(dateStr);
+    }
+    
     if (isNaN(d.getTime())) return "";
+    
+    // これで日本環境ならJSTで表示される
     return `${d.getDate()}日 ${d.getHours()}時 ${d.getMinutes()}分`;
 }
 
@@ -359,9 +370,18 @@ async function fetchWeatherAndQuake() {
 
             const quake = data.items.find(item => item.title.includes("地震"));
             if (quake) {
-                const qTime = new Date(quake.pubDate);
+                // 地震発生時刻のチェック（UTCとしてパースして現在時刻と比較）
+                // rss2jsonのpubDate文字列を強制UTC解釈してDateオブジェクト生成
+                let qDateStr = quake.pubDate;
+                if (qDateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                    qDateStr = qDateStr.replace(' ', 'T') + 'Z';
+                }
+                const qTime = new Date(qDateStr);
                 const now = new Date();
+                
+                // 差分計算 (分)
                 const diffMin = (now - qTime) / 1000 / 60;
+                
                 quake.diffMin = diffMin;
                 quake.isQuake = true;
                 quake.displayDate = formatPubDate(quake.pubDate);
