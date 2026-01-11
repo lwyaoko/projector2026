@@ -9,6 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 /* --- 全体レイアウト --- */
@@ -43,16 +44,15 @@ body.mode-news #news-screen { display: grid; }
 #news-pub-date { align-self: flex-end; font-size: 1.2vw; color: #00fff2; margin-bottom: 15px; border-bottom: 1px solid #00fff2; flex-shrink: 0; }
 #news-desc { font-size: 1.6vw; line-height: 1.8; color: rgba(255,255,255,0.95); white-space: pre-wrap; font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
 
-/* ティッカーエリア（時計＋スクロール） */
-#news-ticker-area { 
-    grid-column: span 2; 
-    background: #fff; 
-    color: #000; 
-    overflow: hidden; 
-    display: flex; 
-    align-items: center; 
-    border-top: 8px solid #0056b3; 
-}
+#news-ticker-area { grid-column: span 2; background: #fff; color: #000; overflow: hidden; display: flex; align-items: center; border-top: 8px solid #0056b3; }
+#news-ticker { white-space: nowrap; font-size: 2.2vw; font-weight: bold; animation: ticker 60s linear infinite; padding-left: 100%; display: inline-block; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+/* ニュース中のミニ時計 */
+#mini-clock { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; font-size: 2vw; color: #00fff2; border-left: 5px solid #00fff2; z-index: 290; display: none; }
+body.mode-news #mini-clock { display: block; }
+body.mode-news #clock-container, body.mode-news #weather-section, body.mode-news #calendar-container { display: none; }
+body.mode-news #status { background: #0056b3; color: #fff; border: none; box-shadow: none; }
 
 /* 左下の時計ボックス */
 #news-info-box {
@@ -72,27 +72,7 @@ body.mode-news #news-screen { display: grid; }
 #news-date-display { font-size: 1.5vw; margin-top: 5px; font-weight: bold; font-family: "Hiragino Kaku Gothic ProN", sans-serif; }
 
 /* スクロールラッパー */
-#news-marquee-box {
-    flex-grow: 1;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-#news-ticker { 
-    white-space: nowrap; 
-    font-size: 2.2vw; 
-    font-weight: bold; 
-    animation: ticker 60s linear infinite; 
-    padding-left: 100%; 
-    display: inline-block; 
-}
-@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-
-/* モード制御 */
-body.mode-news #clock-container, body.mode-news #weather-section, body.mode-news #calendar-container { display: none; }
-body.mode-news #status { background: #0056b3; color: #fff; border: none; box-shadow: none; }
+#news-marquee-box { flex-grow: 1; height: 100%; overflow: hidden; position: relative; display: flex; align-items: center; }
 
 /* --- サイバー流れ星 --- */
 #stars-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
@@ -175,12 +155,41 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 #player { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #tapNotice { position: absolute; bottom: 2%; width: 100%; text-align: center; color: white; font-size: 1.2em; animation: blink 1.5s infinite; z-index: 100; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+/* --- ログインモーダル --- */
+#login-modal { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.9); z-index: 500; display: none; 
+    flex-direction: column; justify-content: center; align-items: center; 
+    color: #fff; text-align: center;
+}
+#login-modal h2 { margin-bottom: 20px; font-size: 2em; color: #00fff2; }
+.login-btn { 
+    background: #0056b3; color: white; border: 2px solid #00fff2; 
+    padding: 15px 30px; margin: 10px; font-size: 1.5em; cursor: pointer; 
+    border-radius: 10px; font-family: 'Share Tech Mono', monospace; 
+}
+#qr-area { margin-top: 20px; background: white; padding: 20px; display: none; border-radius: 10px; }
+#user-code-display { font-size: 2em; margin: 20px 0; font-weight: bold; color: #ff00ff; letter-spacing: 5px; }
+.close-modal { margin-top: 30px; color: #aaa; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 
 <body class="mode-standby">
 <div id="background"></div>
 <div id="stars-container"></div>
+
+<div id="login-modal">
+    <h2>LOGIN METHOD</h2>
+    <div>
+        <button class="login-btn" onclick="handleAuth()">POPUP LOGIN (Browser)</button>
+        <button class="login-btn" onclick="startDeviceLogin()">SCAN QR (Mobile)</button>
+    </div>
+    <div id="user-code-display"></div>
+    <div id="qr-area"></div>
+    <div id="device-flow-status" style="margin-top:10px;"></div>
+    <div class="close-modal" onclick="document.getElementById('login-modal').style.display='none'">CLOSE</div>
+</div>
 
 <div id="news-screen">
     <div id="news-image-area"><img id="news-image" src="" alt=""></div>
@@ -212,7 +221,7 @@ body.mode-standby .weather-panel, body.mode-playlist .weather-panel, body.mode-p
 </div>
 
 <div id="status" onclick="handleStatusClick()">SYSTEM: START</div>
-<div id="calendar-container" onclick="handleCalendarClick()">
+<div id="calendar-container" onclick="openLoginModal()">
     <div id="calendar-title">UPCOMING</div>
     <div id="calendar-list"><div class="event-item active">TAP TO LOGIN</div></div>
 </div>
@@ -312,9 +321,92 @@ async function listUpcomingEvents() {
     } catch (e) {}
 }
 
+function openLoginModal() {
+    if (!activated) { startSystem(); return; }
+    if (gapi.client.getToken()) return; // 既にログイン済みなら無視
+    document.getElementById('login-modal').style.display = 'flex';
+}
+
 function handleCalendarClick() {
-    if (!activated) return;
-    if (gapiInited && gisInited) handleAuth();
+    // 互換性のための空関数（実際のクリックはopenLoginModalへ）
+}
+
+// --- デバイスフロー認証 (QRコード) ---
+async function startDeviceLogin() {
+    const statusEl = document.getElementById("device-flow-status");
+    const qrArea = document.getElementById("qr-area");
+    const codeDisplay = document.getElementById("user-code-display");
+    
+    statusEl.textContent = "Connecting to Google...";
+    qrArea.innerHTML = "";
+    qrArea.style.display = "none";
+    codeDisplay.textContent = "";
+
+    // CORS回避のためのプロキシ (※本来はサーバー側で行う処理をクライアントで代行)
+    const proxy = "https://corsproxy.io/?"; 
+    const endpoint = "https://oauth2.googleapis.com/device/code";
+    const body = `client_id=${CLIENT_ID}&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}`;
+
+    try {
+        const res = await fetch(proxy + encodeURIComponent(endpoint), {
+            method: "POST",
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+        });
+        
+        if (!res.ok) throw new Error("Device Flow not supported for this Client ID.");
+        
+        const data = await res.json();
+        
+        // QRコード生成
+        qrArea.style.display = "block";
+        new QRCode(qrArea, { text: data.verification_url, width: 200, height: 200 });
+        
+        codeDisplay.textContent = data.user_code;
+        statusEl.innerHTML = `1. スマホでQRをスキャン<br>2. 以下のコードを入力: <b>${data.user_code}</b>`;
+
+        // ポーリング開始
+        pollDeviceToken(data.device_code, data.interval);
+
+    } catch (e) {
+        statusEl.textContent = "Error: " + e.message + " (Popup Login推奨)";
+    }
+}
+
+async function pollDeviceToken(deviceCode, interval) {
+    const proxy = "https://corsproxy.io/?";
+    const endpoint = "https://oauth2.googleapis.com/token";
+    const body = `client_id=${CLIENT_ID}&grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${deviceCode}`;
+
+    const poll = setInterval(async () => {
+        try {
+            const res = await fetch(proxy + encodeURIComponent(endpoint), {
+                method: "POST",
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body
+            });
+            const data = await res.json();
+
+            if (data.access_token) {
+                clearInterval(poll);
+                gapi.client.setToken({ access_token: data.access_token });
+                document.getElementById('login-modal').style.display = 'none';
+                await listUpcomingEvents();
+            } else if (data.error !== 'authorization_pending') {
+                clearInterval(poll);
+                document.getElementById("device-flow-status").textContent = "Auth Error: " + data.error;
+            }
+        } catch (e) { clearInterval(poll); }
+    }, (interval * 1000) + 1000);
+}
+
+function handleAuth() {
+    // 既存のポップアップログイン
+    if(document.getElementById('login-modal').style.display === 'flex') {
+        document.getElementById('login-modal').style.display = 'none';
+    }
+    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
+    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
 }
 
 function playBaseVideoSynced() {
@@ -445,7 +537,7 @@ async function fetchNews() {
                         if (!currentNews.find(n => n.title === item.title)) {
                             item.type = "news";
                             item.displayDate = formatPubDate(item.pubDate);
-                            // NHK: タグのみ除去し、全文表示 (省略記号削除は廃止)
+                            // NHK: 全文表示 (タグのみ除去)
                             item.cleanDesc = item.description.replace(/<[^>]*>?/gm, '');
                             currentNews.push(item);
                         }
@@ -489,7 +581,6 @@ async function fetchWeatherAndQuake() {
                 quake.diffMin = diffMin;
                 quake.isQuake = true;
                 quake.displayDate = formatPubDate(quake.pubDate);
-                // 地震は全文表示 (isQuake=true)
                 const cleaned = cleanWeatherNewsDescription(quake.title, quake.description, true);
                 quake.cleanDesc = cleaned.text;
                 quake.imageUrl = cleaned.imageUrl || "https://www.pakutaso.com/shared/img/thumb/earthquake_863.jpg";
@@ -697,6 +788,9 @@ async function updateWeather() {
 }
 
 function handleAuth() {
+    if(document.getElementById('login-modal').style.display === 'flex') {
+        document.getElementById('login-modal').style.display = 'none';
+    }
     tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
     tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
 }
