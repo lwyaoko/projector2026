@@ -704,4 +704,35 @@ async function updateWeather() {
                         <div class="forecast-temp">${data.hourly.temperature_2m[hour+i].toFixed(0)}°</div>
                     </div>`;
         }).join('');
+    } catch (e) {}
+}
 
+function handleAuth() {
+    tokenClient.callback = async (resp) => { if (resp.error !== undefined) throw (resp); await listUpcomingEvents(); };
+    tokenClient.requestAccessToken({prompt: gapi.client.getToken() === null ? 'consent' : ''});
+}
+
+document.body.addEventListener('click', (e) => { if(!activated) startSystem(); });
+const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.body.appendChild(tag);
+updateWeather(); setInterval(updateWeather, 900000);
+
+setInterval(() => {
+    const p1 = document.getElementById("panel-current"); const p2 = document.getElementById("panel-forecast");
+    if(p1.classList.contains("active")) { p1.classList.remove("active"); p2.classList.add("active"); } 
+    else { p2.classList.remove("active"); p1.classList.add("active"); }
+}, 10000);
+
+setInterval(() => {
+    const items = document.querySelectorAll('.event-item');
+    if (items.length <= 1) return;
+    items[currentEventIndex].classList.remove('active');
+    currentEventIndex = (currentEventIndex + 1) % items.length;
+    items[currentEventIndex].classList.add('active');
+}, 5000);
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") { updateClock(); requestWakeLock(); }
+});
+</script>
+</body>
+</html>
